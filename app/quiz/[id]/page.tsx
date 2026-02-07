@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DashboardNav } from '@/components/dashboard-nav';
@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,9 +19,11 @@ import {
   Trophy,
   RotateCcw,
 } from 'lucide-react';
-import { getQuiz, submitQuiz } from '@/lib/mock-api/data';
-import { Quiz, QuizResult } from '@/lib/types';
-import { toast } from 'sonner';
+
+import type { Quiz, QuizAnswerMap } from '@/lib/quiz/quiz-engine';
+import { gradeQuiz } from '@/lib/quiz/quiz-engine';
+import { saveQuizResult } from '@/lib/quiz/quiz-storage';
+import { getEngineQuizById } from '@/lib/quiz/quiz-adapter';
 
 export default function QuizPage() {
   const router = useRouter();
@@ -29,67 +32,66 @@ export default function QuizPage() {
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string | number>>({});
+  const [answers, setAnswers] = useState<QuizAnswerMap>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [result, setResult] = useState<QuizResult | null>(null);
+  const [result, setResult] = useState<ReturnType<typeof gradeQuiz> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
-      const chapterId = quizId.replace('quiz-', '');
-      const quizData = await getQuiz(chapterId);
-      setQuiz(quizData);
-      setIsLoading(false);
-    };
-
-    loadData();
+    const q = getEngineQuizById(quizId);
+    setQuiz(q);
+    setIsLoading(false);
   }, [quizId]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const totalQuestions = quiz?.questions.length ?? 0;
+  const currentQuestion = quiz?.questions[currentQuestionIndex];
 
-  if (!quiz) {
-    return null;
-  }
-
-  const currentQuestion = quiz.questions[currentQuestionIndex];
-  const totalQuestions = quiz.questions.length;
-  const progressPercentage = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+  const progressPercentage = useMemo(() => {
+    if (!totalQuestions) return 0;
+    return ((currentQuestionIndex + 1) / totalQuestions) * 100;
+  }, [currentQuestionIndex, totalQuestions]);
 
   const handleAnswerChange = (value: string | number) => {
-    setAnswers({
-      ...answers,
+    if (!currentQuestion) return;
+    setAnswers((prev) => ({
+      ...prev,
       [currentQuestion.id]: value,
-    });
+    }));
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    if (!quiz) return;
+    if (currentQuestionIndex < quiz.questions.length - 1) {
+      setCurrentQuestionIndex((i) => i + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setCurrentQuestionIndex((i) => i - 1);
     }
   };
 
-  const handleSubmit = async () => {
-    const unanswered = quiz.questions.filter((q) => !answers[q.id]);
+  const handleSubmit = () => {
+    if (!quiz) return;
+
+    const unanswered = quiz.questions.filter((q) => {
+      const v = answers[q.id];
+      if (v === null || v === undefined) return true;
+      if (typeof v === 'string' && v.trim().length === 0) return true;
+      return false;
+    });
+
     if (unanswered.length > 0) {
       toast.error(`Il reste ${unanswered.length} question(s) sans réponse`);
       return;
     }
 
-    const quizResult = await submitQuiz(quiz.id, answers);
-    setResult(quizResult);
+    const r = gradeQuiz(quiz, answers);
+    setResult(r);
     setIsSubmitted(true);
+    saveQuizResult(r);
+
     toast.success('Quiz soumis avec succès !');
   };
 
@@ -100,9 +102,39 @@ export default function QuizPage() {
     setResult(null);
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!quiz || !currentQuestion) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardNav />
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quiz introuvable</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                Ce quiz n’existe pas (ou son identifiant est incorrect).
+              </p>
+              <Button onClick={() => router.back()}>Retour</Button>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  // ✅ Écran résultat
   if (isSubmitted && result) {
-    const scorePercentage = (result.score / result.totalQuestions) * 100;
-    const passed = scorePercentage >= 60;
+    const scorePercentage = result.totalQuestions === 0 ? 0 : (result.score / result.totalQuestions) * 100;
+    const passed = scorePercentage >= (quiz.passPercent ?? 70);
 
     return (
       <div className="min-h-screen bg-background">
@@ -128,10 +160,12 @@ export default function QuizPage() {
                     </div>
                   )}
                 </div>
+
                 <CardTitle className="text-3xl font-serif">
                   {passed ? 'Félicitations !' : 'Continuez vos efforts !'}
                 </CardTitle>
               </CardHeader>
+
               <CardContent className="space-y-6">
                 <div>
                   <div className="text-5xl font-bold mb-2">{scorePercentage.toFixed(0)}%</div>
@@ -142,9 +176,11 @@ export default function QuizPage() {
 
                 <div className="space-y-3">
                   {quiz.questions.map((question) => {
-                    const userAnswer = String(answers[question.id]);
+                    const corr = result.corrections.find((c) => c.questionId === question.id);
+                    const isCorrect = corr?.isCorrect ?? false;
+
+                    const userAnswer = corr?.chosen === null || corr?.chosen === undefined ? '' : String(corr.chosen);
                     const correctAnswer = String(question.correctAnswer);
-                    const isCorrect = userAnswer === correctAnswer;
 
                     return (
                       <div
@@ -163,14 +199,10 @@ export default function QuizPage() {
                           )}
                           <div className="flex-1 text-left">
                             <p className="font-medium text-sm mb-1">{question.question}</p>
+
                             {!isCorrect && (
                               <p className="text-xs text-muted-foreground">
-                                Votre réponse: {userAnswer} • Bonne réponse: {correctAnswer}
-                              </p>
-                            )}
-                            {question.explanation && !isCorrect && (
-                              <p className="text-xs mt-2 text-muted-foreground">
-                                {question.explanation}
+                                Votre réponse: {userAnswer || '—'} • Bonne réponse: {correctAnswer}
                               </p>
                             )}
                           </div>
@@ -197,6 +229,7 @@ export default function QuizPage() {
     );
   }
 
+  // ✅ Écran quiz (avec inputs garantis)
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
@@ -231,17 +264,14 @@ export default function QuizPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-xl">{currentQuestion.question}</CardTitle>
-                  {currentQuestion.latex && (
-                    <div className="bg-muted p-4 rounded-lg mt-4 text-center font-mono text-lg">
-                      {currentQuestion.latex}
-                    </div>
-                  )}
                 </CardHeader>
+
                 <CardContent className="space-y-4">
+                  {/* ✅ QCM */}
                   {currentQuestion.type === 'mcq' && currentQuestion.options && (
                     <RadioGroup
-                      value={String(answers[currentQuestion.id] || '')}
-                      onValueChange={handleAnswerChange}
+                      value={String(answers[currentQuestion.id] ?? '')}
+                      onValueChange={(v) => handleAnswerChange(v)}
                     >
                       {currentQuestion.options.map((option, index) => (
                         <div
@@ -249,10 +279,7 @@ export default function QuizPage() {
                           className="flex items-center space-x-3 p-4 rounded-lg border hover:border-primary transition-colors cursor-pointer"
                         >
                           <RadioGroupItem value={option} id={`option-${index}`} />
-                          <Label
-                            htmlFor={`option-${index}`}
-                            className="flex-1 cursor-pointer"
-                          >
+                          <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
                             {option}
                           </Label>
                         </div>
@@ -260,6 +287,7 @@ export default function QuizPage() {
                     </RadioGroup>
                   )}
 
+                  {/* ✅ Numeric (LE CHAMP QUI MANQUAIT CHEZ TOI) */}
                   {currentQuestion.type === 'numeric' && (
                     <div>
                       <Label htmlFor="numeric-answer" className="mb-2 block">
@@ -269,8 +297,25 @@ export default function QuizPage() {
                         id="numeric-answer"
                         type="number"
                         placeholder="Entrez votre réponse"
-                        value={answers[currentQuestion.id] || ''}
-                        onChange={(e) => handleAnswerChange(Number(e.target.value))}
+                        value={answers[currentQuestion.id] ?? ''}
+                        onChange={(e) => handleAnswerChange(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="text-lg"
+                      />
+                    </div>
+                  )}
+
+                  {/* ✅ Text */}
+                  {currentQuestion.type === 'text' && (
+                    <div>
+                      <Label htmlFor="text-answer" className="mb-2 block">
+                        Votre réponse :
+                      </Label>
+                      <Input
+                        id="text-answer"
+                        type="text"
+                        placeholder="Entrez votre réponse"
+                        value={String(answers[currentQuestion.id] ?? '')}
+                        onChange={(e) => handleAnswerChange(e.target.value)}
                         className="text-lg"
                       />
                     </div>

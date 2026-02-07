@@ -1,15 +1,48 @@
 import './globals.css';
+import 'katex/dist/katex.min.css';
 import type { Metadata } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
+// ==========================
+// Google Fonts avec fallback
+// ==========================
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+  fallback: [
+    'system-ui',
+    'Segoe UI',
+    'Roboto',
+    'Helvetica',
+    'Arial',
+    'sans-serif',
+  ],
+});
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+  display: 'swap',
+  fallback: [
+    'Georgia',
+    'Times New Roman',
+    'Times',
+    'serif',
+  ],
+});
+
+// ==========================
+// Metadata
+// ==========================
 
 export const metadata: Metadata = {
-  title: 'EduStat-RDC - Réussir l\'école avec méthode et discipline',
-  description: 'Plateforme éducative structurée pour les élèves congolais. Cours, exercices, quiz et suivi de progression.',
+  title: "EduStat-RDC - Réussir l'école avec méthode et discipline",
+  description:
+    'Plateforme éducative structurée pour les élèves congolais. Cours, exercices, quiz et suivi de progression.',
   openGraph: {
     images: [
       {
@@ -27,6 +60,10 @@ export const metadata: Metadata = {
   },
 };
 
+// ==========================
+// Root Layout
+// ==========================
+
 export default function RootLayout({
   children,
 }: {
@@ -34,7 +71,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
+      <body
+        className={`${inter.variable} ${playfair.variable} font-sans antialiased`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

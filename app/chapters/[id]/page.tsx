@@ -1,13 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Clock, FileText, PenTool, Brain, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Clock,
+  FileText,
+  PenTool,
+  Brain,
+  CheckCircle2,
+  Play,
+} from 'lucide-react';
 import {
   getChapterById,
   getCourseContent,
@@ -16,6 +24,15 @@ import {
 } from '@/lib/mock-api/data';
 import { Chapter, CourseContent, Exercise, Quiz } from '@/lib/types';
 import Link from 'next/link';
+
+// Leçons
+import { getLessonsByChapter } from '@/lib/data/lessons';
+
+import { Latex } from '@/components/math/latex';
+
+
+// Progression
+import { getChapterProgress, isLessonCompleted } from '@/lib/progress';
 
 export default function ChapterDetailPage() {
   const router = useRouter();
@@ -30,6 +47,26 @@ export default function ChapterDetailPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Pour recalculer quand une leçon est cochée depuis /lessons
+  const [progressTick, setProgressTick] = useState(0);
+
+  useEffect(() => {
+    const handler = () => setProgressTick((x) => x + 1);
+    window.addEventListener('edustat_progress_updated', handler);
+    return () => window.removeEventListener('edustat_progress_updated', handler);
+  }, []);
+
+  // Leçons liées au chapitre (même id que /chapters/[id])
+  const lessonsForChapter = useMemo(() => {
+    return getLessonsByChapter(chapterId);
+  }, [chapterId]);
+
+  const lessonIds = useMemo(() => lessonsForChapter.map((l) => l.id), [lessonsForChapter]);
+
+  const chapterProgress = useMemo(() => {
+    return getChapterProgress(chapterId, lessonIds);
+  }, [chapterId, lessonIds, progressTick]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -63,9 +100,7 @@ export default function ChapterDetailPage() {
     );
   }
 
-  if (!chapter) {
-    return null;
-  }
+  if (!chapter) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,7 +126,8 @@ export default function ChapterDetailPage() {
                 <Clock className="h-4 w-4 mr-2" />
                 Temps estimé: {chapter.estimatedTime} minutes
               </div>
-              {chapter.status === 'completed' && (
+
+              {(chapter.status === 'completed' || chapterProgress.percent === 100) && (
                 <div className="flex items-center text-green-600">
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Chapitre terminé
@@ -110,50 +146,129 @@ export default function ChapterDetailPage() {
                 <PenTool className="h-4 w-4 mr-2" />
                 Exercices
               </TabsTrigger>
-              <TabsTrigger
-                value="quiz"
-                className="flex items-center"
-                disabled={!chapter.hasQuiz}
-              >
+              <TabsTrigger value="quiz" className="flex items-center" disabled={!chapter.hasQuiz}>
                 <Brain className="h-4 w-4 mr-2" />
                 Quiz
               </TabsTrigger>
             </TabsList>
 
+            {/* =========================
+                ONGLET COURS
+               ========================= */}
             <TabsContent value="course" className="space-y-6">
-              {courseContent && (
-                <div className="max-w-4xl">
-                  {courseContent.sections.map((section, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                    >
-                      <Card className="mb-6">
-                        <CardHeader>
-                          <CardTitle>{section.title}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="prose dark:prose-invert max-w-none">
-                          <p className="leading-relaxed">{section.content}</p>
-                          {section.latex && (
-                            <div className="bg-muted p-4 rounded-lg mt-4 text-center font-mono text-lg">
-                              {section.latex}
+              <div className="max-w-4xl space-y-6">
+                {/* Leçons */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Leçons</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Suis les leçons une par une, puis valide avec le quiz.
+                    </p>
+                  </CardHeader>
+
+                  <CardContent className="space-y-3">
+                    {/* Progression */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                        <span>Progression du chapitre</span>
+                        <span>{chapterProgress.percent}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: `${chapterProgress.percent}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {chapterProgress.completed}/{chapterProgress.total} leçons terminées
+                      </div>
+                    </div>
+
+                    {lessonsForChapter.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        Aucune leçon n’est encore liée à ce chapitre.
+                      </div>
+                    ) : (
+                      lessonsForChapter.map((lesson, idx) => {
+                        const done = isLessonCompleted(chapterId, lesson.id);
+
+                        return (
+                          <div
+                            key={lesson.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4"
+                          >
+                            <div>
+                              <p className="font-semibold">
+                                {idx + 1}. {lesson.title}{' '}
+                                {done ? <span className="text-green-600">✓</span> : null}
+                              </p>
+
+                              {lesson.summary ? (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {lesson.summary}
+                                </p>
+                              ) : null}
+
+                              <div className="text-xs text-muted-foreground mt-2">
+                                {lesson.durationMin ? `${lesson.durationMin} min` : 'Durée : —'}
+                                {lesson.isPremium ? ' • Premium' : ''}
+                              </div>
                             </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                  <div className="flex justify-end mt-8">
-                    <Button onClick={() => setActiveTab('exercises')}>
-                      Passer aux exercices
-                    </Button>
+
+                            <div className="flex gap-2">
+                              <Link href={`/lessons/${lesson.id}`}>
+                                <Button>
+                                  <Play className="mr-2 h-4 w-4" />
+                                  Ouvrir
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Contenu cours existant */}
+                {courseContent && (
+                  <div className="max-w-4xl">
+                    {courseContent.sections.map((section, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <Card className="mb-6">
+                          <CardHeader>
+                            <CardTitle>{section.title}</CardTitle>
+                          </CardHeader>
+                          <CardContent className="prose dark:prose-invert max-w-none">
+                            <p className="leading-relaxed">{section.content}</p>
+                            {section.latex && (
+  <div className="mt-4 rounded-lg border bg-muted/40 p-4 overflow-x-auto">
+    <Latex latex={section.latex} />
+  </div>
+)}
+
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                    <div className="flex justify-end mt-8">
+                      <Button onClick={() => setActiveTab('exercises')}>
+                        Passer aux exercices
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </TabsContent>
 
+            {/* =========================
+                ONGLET EXERCICES
+               ========================= */}
             <TabsContent value="exercises" className="space-y-6">
               <div className="max-w-4xl">
                 {exercises.map((exercise, index) => (
@@ -189,10 +304,11 @@ export default function ChapterDetailPage() {
                           <h4 className="font-semibold mb-2">Question :</h4>
                           <p>{exercise.question}</p>
                           {exercise.latex && (
-                            <div className="bg-muted p-4 rounded-lg mt-2 text-center font-mono text-lg">
-                              {exercise.latex}
-                            </div>
-                          )}
+  <div className="mt-2 rounded-lg border bg-muted/40 p-4 overflow-x-auto">
+    <Latex latex={exercise.latex} />
+  </div>
+)}
+
                         </div>
                         <details className="border-t pt-4">
                           <summary className="cursor-pointer font-semibold hover:text-primary">
@@ -208,14 +324,15 @@ export default function ChapterDetailPage() {
                 ))}
                 {chapter.hasQuiz && (
                   <div className="flex justify-end mt-8">
-                    <Button onClick={() => setActiveTab('quiz')}>
-                      Passer au quiz
-                    </Button>
+                    <Button onClick={() => setActiveTab('quiz')}>Passer au quiz</Button>
                   </div>
                 )}
               </div>
             </TabsContent>
 
+            {/* =========================
+                ONGLET QUIZ
+               ========================= */}
             <TabsContent value="quiz">
               {quiz && (
                 <div className="max-w-4xl">
