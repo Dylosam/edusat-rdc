@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use client';
 
 import { useMemo, useEffect, useState } from 'react';
@@ -262,3 +263,143 @@ export default function LessonPage() {
     </div>
   );
 }
+=======
+// app/lessons/[id]/page.tsx
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { LatexBlock } from "@/components/math/latex";
+import { getLessonById, getPrevNextLesson } from "@/lib/data/lessons";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+
+export default function LessonPage({ params }: { params: { id: string } }) {
+  const lesson = getLessonById(params.id);
+  if (!lesson) notFound();
+
+  const nav = getPrevNextLesson(lesson.chapterId, lesson.id);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">Leçon</Badge>
+              {lesson.isPremium ? (
+                <Badge>Premium</Badge>
+              ) : (
+                <Badge variant="outline">Gratuit</Badge>
+              )}
+              {typeof lesson.durationMin === "number" ? (
+                <Badge variant="outline">{lesson.durationMin} min</Badge>
+              ) : null}
+            </div>
+
+            <h1 className="mt-3 text-3xl font-bold font-serif leading-tight">
+              {lesson.title}
+            </h1>
+
+            {lesson.summary ? (
+              <p className="mt-2 text-muted-foreground">{lesson.summary}</p>
+            ) : null}
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/chapters/${lesson.chapterId}`}>Retour au chapitre</Link>
+            </Button>
+          </div>
+        </div>
+
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-muted-foreground">
+              Progression {nav.index}/{nav.total}
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            {lesson.content.map((block, idx) => {
+              if (block.type === "text") {
+                return (
+                  <p key={idx} className="leading-relaxed">
+                    {block.value}
+                  </p>
+                );
+              }
+
+              if (block.type === "formula") {
+                return <LatexBlock key={idx} value={block.value} />;
+              }
+
+              if (block.type === "tip") {
+                return (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-border/50 bg-muted/30 p-4"
+                  >
+                    <p className="font-medium">Astuce</p>
+                    <p className="mt-1 text-muted-foreground leading-relaxed">
+                      {block.value}
+                    </p>
+                  </div>
+                );
+              }
+
+              if (block.type === "example") {
+                return (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-border/50 bg-background p-4"
+                  >
+                    {block.title ? <p className="font-medium">{block.title}</p> : null}
+                    <p className="mt-1 text-muted-foreground leading-relaxed">
+                      {block.value}
+                    </p>
+                  </div>
+                );
+              }
+
+              return null;
+            })}
+
+            <Separator className="my-6" />
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <div className="flex gap-2">
+                <Button asChild variant="outline" disabled={!nav.prev}>
+                  <Link
+                    href={nav.prev ? `/lessons/${nav.prev.id}` : "#"}
+                    aria-disabled={!nav.prev}
+                    tabIndex={!nav.prev ? -1 : 0}
+                  >
+                    Précédent
+                  </Link>
+                </Button>
+
+                <Button asChild variant="outline" disabled={!nav.next}>
+                  <Link
+                    href={nav.next ? `/lessons/${nav.next.id}` : "#"}
+                    aria-disabled={!nav.next}
+                    tabIndex={!nav.next ? -1 : 0}
+                  >
+                    Suivant
+                  </Link>
+                </Button>
+              </div>
+
+              <Button asChild className="sm:hidden" variant="outline">
+                <Link href={`/chapters/${lesson.chapterId}`}>Retour au chapitre</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)

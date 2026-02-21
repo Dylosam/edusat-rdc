@@ -2,13 +2,22 @@
 
 export type LessonContentBlock =
   | { type: "text"; value: string }
+<<<<<<< HEAD
   | { type: "formula"; value: string }
+=======
+  | { type: "formula"; value: string } // LaTeX
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
   | { type: "tip"; value: string }
   | { type: "example"; title?: string; value: string };
 
 export type Lesson = {
+<<<<<<< HEAD
   id: string;
   chapterId: string; // doit matcher /chapters/[id]
+=======
+  id: string; // ex: "lesson-c1-1-01"
+  chapterId: string; // ex: "c1-1"
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
   title: string;
   summary?: string;
   content: LessonContentBlock[];
@@ -17,6 +26,7 @@ export type Lesson = {
   isPremium?: boolean;
 };
 
+<<<<<<< HEAD
 function norm(v: any) {
   return String(v ?? "").trim().toLowerCase().replace(/\s+/g, "-");
 }
@@ -25,6 +35,9 @@ export const lessons: Lesson[] = [
   // =========================
   // Chapitre: c1-1
   // =========================
+=======
+export const lessons: Lesson[] = [
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
   {
     id: "lesson-c1-1-01",
     chapterId: "c1-1",
@@ -47,8 +60,12 @@ export const lessons: Lesson[] = [
       {
         type: "example",
         title: "Exemple",
+<<<<<<< HEAD
         value:
           "Si f(x)=2x+1, alors f(3)=2×3+1=7. On remplace x par 3 et on calcule.",
+=======
+        value: "Si f(x)=2x+1, alors f(3)=2×3+1=7.",
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
       },
       { type: "formula", value: "f(3)=2\\times 3+1=7" },
     ],
@@ -56,12 +73,18 @@ export const lessons: Lesson[] = [
   {
     id: "lesson-c1-1-02",
     chapterId: "c1-1",
+<<<<<<< HEAD
     title: "Notation et lecture de f(x)",
     summary: "Comment lire f(2), f(a), et traduire un énoncé en expression.",
+=======
+    title: "Les fractions (vraies fractions KaTeX)",
+    summary: "Affichage correct des fractions en LaTeX.",
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
     durationMin: 10,
     order: 2,
     isPremium: false,
     content: [
+<<<<<<< HEAD
       {
         type: "text",
         value:
@@ -164,12 +187,21 @@ export const lessons: Lesson[] = [
         value:
           "Si f(x)=x^2+2x+1, alors f(1)=1+2+1=4.",
       },
+=======
+      { type: "text", value: "Voici une fraction simple :" },
+      { type: "formula", value: "\\frac{1}{2}" },
+      { type: "text", value: "Voici une fraction algébrique :" },
+      { type: "formula", value: "\\frac{x+1}{x-2}" },
+      { type: "text", value: "Addition de fractions :" },
+      { type: "formula", value: "\\frac{a}{b}+\\frac{c}{d}=\\frac{ad+bc}{bd}" },
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
     ],
   },
 ];
 
 // Helpers
 export function getLessonsByChapter(chapterId: string) {
+<<<<<<< HEAD
   const target = norm(chapterId);
 
   return lessons
@@ -185,6 +217,10 @@ export function getLessonsByChapter(chapterId: string) {
 
       return false;
     })
+=======
+  return lessons
+    .filter((l) => l.chapterId === chapterId)
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
     .sort((a, b) => a.order - b.order);
 }
 
@@ -195,11 +231,21 @@ export function getLessonById(id: string) {
 export function getPrevNextLesson(chapterId: string, currentLessonId: string) {
   const list = getLessonsByChapter(chapterId);
   const idx = list.findIndex((l) => l.id === currentLessonId);
+<<<<<<< HEAD
   if (idx === -1) return { prev: null, next: null, index: 0, total: list.length };
+=======
+
+  if (idx === -1) return { prev: null, next: null, index: 0, total: list.length };
+
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
   return {
     prev: idx > 0 ? list[idx - 1] : null,
     next: idx < list.length - 1 ? list[idx + 1] : null,
     index: idx + 1,
     total: list.length,
   };
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)

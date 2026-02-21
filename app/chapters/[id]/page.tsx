@@ -1,12 +1,19 @@
 'use client';
 
+<<<<<<< HEAD
 import { useState, useEffect, useMemo } from 'react';
+=======
+import { useEffect, useState } from 'react';
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
+
 import { DashboardNav } from '@/components/dashboard-nav';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+<<<<<<< HEAD
 import {
   ArrowLeft,
   Clock,
@@ -16,14 +23,26 @@ import {
   CheckCircle2,
   Play,
 } from 'lucide-react';
+=======
+
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
 import {
-  getChapterById,
-  getCourseContent,
-  getExercises,
-  getQuiz,
-} from '@/lib/mock-api/data';
-import { Chapter, CourseContent, Exercise, Quiz } from '@/lib/types';
-import Link from 'next/link';
+  ArrowLeft,
+  Clock,
+  FileText,
+  PenTool,
+  Brain,
+  CheckCircle2,
+} from 'lucide-react';
+
+import { getChapterById, getExercises, getQuiz } from '@/lib/mock-api/data';
+import type { Chapter, Exercise, Quiz } from '@/lib/types';
+
+import type { Lesson } from '@/lib/data/lessons';
+import { getLessonsByChapter } from '@/lib/data/lessons';
+
+import { LatexBlock } from '@/components/math/latex';
+import { normalizeLatex } from '@/lib/utils/latex';
 
 // Leçons
 import { getLessonsByChapter } from '@/lib/data/lessons';
@@ -38,13 +57,15 @@ export default function ChapterDetailPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+
   const chapterId = params?.id as string;
   const initialTab = searchParams?.get('tab') || 'course';
 
   const [chapter, setChapter] = useState<Chapter | null>(null);
-  const [courseContent, setCourseContent] = useState<CourseContent | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -70,6 +91,8 @@ export default function ChapterDetailPage() {
 
   useEffect(() => {
     const loadData = async () => {
+      setIsLoading(true);
+
       const chapterData = await getChapterById(chapterId);
       if (!chapterData) {
         router.push('/subjects');
@@ -77,15 +100,17 @@ export default function ChapterDetailPage() {
       }
       setChapter(chapterData);
 
-      const [content, exercisesData, quizData] = await Promise.all([
-        getCourseContent(chapterId),
+      const lessonsData = getLessonsByChapter(chapterId);
+      setLessons(lessonsData);
+
+      const [exercisesData, quizData] = await Promise.all([
         getExercises(chapterId),
         chapterData.hasQuiz ? getQuiz(chapterId) : Promise.resolve(null),
       ]);
 
-      setCourseContent(content);
       setExercises(exercisesData);
       setQuiz(quizData);
+
       setIsLoading(false);
     };
 
@@ -127,7 +152,11 @@ export default function ChapterDetailPage() {
                 Temps estimé: {chapter.estimatedTime} minutes
               </div>
 
+<<<<<<< HEAD
               {(chapter.status === 'completed' || chapterProgress.percent === 100) && (
+=======
+              {chapter.status === 'completed' && (
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
                 <div className="flex items-center text-green-600">
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Chapitre terminé
@@ -142,16 +171,27 @@ export default function ChapterDetailPage() {
                 <FileText className="h-4 w-4 mr-2" />
                 Cours
               </TabsTrigger>
+
               <TabsTrigger value="exercises" className="flex items-center">
                 <PenTool className="h-4 w-4 mr-2" />
                 Exercices
               </TabsTrigger>
+<<<<<<< HEAD
               <TabsTrigger value="quiz" className="flex items-center" disabled={!chapter.hasQuiz}>
+=======
+
+              <TabsTrigger
+                value="quiz"
+                className="flex items-center"
+                disabled={!chapter.hasQuiz}
+              >
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
                 <Brain className="h-4 w-4 mr-2" />
                 Quiz
               </TabsTrigger>
             </TabsList>
 
+<<<<<<< HEAD
             {/* =========================
                 ONGLET COURS
                ========================= */}
@@ -322,6 +362,160 @@ export default function ChapterDetailPage() {
                     </Card>
                   </motion.div>
                 ))}
+=======
+            {/* COURS = LESSONS */}
+            <TabsContent value="course" className="space-y-6">
+              <div className="max-w-4xl">
+                {lessons.length === 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Aucune leçon</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-muted-foreground">
+                      Aucune leçon trouvée pour ce chapitre ({chapterId}).
+                    </CardContent>
+                  </Card>
+                ) : (
+                  lessons.map((lesson, index) => (
+                    <motion.div
+                      key={lesson.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.08 }}
+                    >
+                      <Card className="mb-6">
+                        <CardHeader>
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <CardTitle>{lesson.title}</CardTitle>
+                              {lesson.summary && (
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  {lesson.summary}
+                                </p>
+                              )}
+                            </div>
+
+                            <Link href={`/lessons/${lesson.id}`}>
+                              <Button>Ouvrir</Button>
+                            </Link>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="prose dark:prose-invert max-w-none">
+                          {lesson.content?.slice(0, 2).map((block, i) => {
+                            if (block.type === 'text') {
+                              return (
+                                <p key={i} className="leading-relaxed">
+                                  {block.value}
+                                </p>
+                              );
+                            }
+
+                            if (block.type === 'formula') {
+                              return (
+                                <div key={i} className="mt-4">
+                                  <LatexBlock value={block.value} />
+                                </div>
+                              );
+                            }
+
+                            if (block.type === 'tip') {
+                              return (
+                                <div key={i} className="bg-muted p-4 rounded-lg mt-4">
+                                  <p className="m-0">{block.value}</p>
+                                </div>
+                              );
+                            }
+
+                            if (block.type === 'example') {
+                              return (
+                                <div key={i} className="bg-muted p-4 rounded-lg mt-4">
+                                  {block.title && (
+                                    <p className="font-semibold m-0 mb-2">{block.title}</p>
+                                  )}
+                                  <p className="m-0">{block.value}</p>
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))
+                )}
+
+                <div className="flex justify-end mt-8">
+                  <Button onClick={() => setActiveTab('exercises')}>
+                    Passer aux exercices
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* EXERCICES = KaTeX ✅ */}
+            <TabsContent value="exercises" className="space-y-6">
+              <div className="max-w-4xl">
+                {exercises.map((exercise, index) => {
+                  const latex = normalizeLatex(exercise.latex);
+
+                  return (
+                    <motion.div
+                      key={exercise.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                    >
+                      <Card className="mb-6">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle>Exercice {index + 1}</CardTitle>
+                            <span
+                              className={`text-xs px-2 py-1 rounded ${
+                                exercise.difficulty === 'easy'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : exercise.difficulty === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}
+                            >
+                              {exercise.difficulty === 'easy'
+                                ? 'Facile'
+                                : exercise.difficulty === 'medium'
+                                ? 'Moyen'
+                                : 'Difficile'}
+                            </span>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="space-y-4">
+                          <div>
+                            <h4 className="font-semibold mb-2">Question :</h4>
+                            <p>{exercise.question}</p>
+
+                            {latex ? (
+                              <div className="mt-3 rounded-lg border border-border/50 bg-muted/30 p-4">
+                                <LatexBlock value={latex} />
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <details className="border-t pt-4">
+                            <summary className="cursor-pointer font-semibold hover:text-primary">
+                              Voir la solution
+                            </summary>
+                            <div className="mt-4 p-4 bg-muted rounded-lg">
+                              <p className="font-mono">{exercise.solution}</p>
+                            </div>
+                          </details>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
                 {chapter.hasQuiz && (
                   <div className="flex justify-end mt-8">
                     <Button onClick={() => setActiveTab('quiz')}>Passer au quiz</Button>
@@ -330,9 +524,13 @@ export default function ChapterDetailPage() {
               </div>
             </TabsContent>
 
+<<<<<<< HEAD
             {/* =========================
                 ONGLET QUIZ
                ========================= */}
+=======
+            {/* QUIZ */}
+>>>>>>> 5ccb2c3 (feat: add lessons module, math components and quiz refactor)
             <TabsContent value="quiz">
               {quiz && (
                 <div className="max-w-4xl">
