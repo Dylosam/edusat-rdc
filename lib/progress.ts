@@ -1,94 +1,165 @@
 // lib/progress.ts
-export type ProgressStore = {
-  // clé: chapterId, valeur: array de lessonId terminées
-  completedByChapter: Record<string, string[]>;
+
+export type UserProgress = {
+  completedChapters: string[];
+  completedQuizzes: string[];
+  completedLessons: string[];
 };
 
-const KEY = "edustat_progress_v1";
+export type ChapterProgress = {
+  chapterId: string;
+  totalLessons: number;
+  completedLessons: number;
+  percent: number; // 0..100
+  isCompleted: boolean;
+};
 
-function safeParse(json: string | null): ProgressStore {
+const KEY = "edusat_progress";
+
+function emptyProgress(): UserProgress {
+  return { completedChapters: [], completedQuizzes: [], completedLessons: [] };
+}
+
+export function getProgress(): UserProgress {
+  if (typeof window === "undefined") return emptyProgress();
+
+  const raw = localStorage.getItem(KEY);
+  if (!raw) return emptyProgress();
+
   try {
-    if (!json) return { completedByChapter: {} };
-    const data = JSON.parse(json);
-    if (!data || typeof data !== "object") return { completedByChapter: {} };
-    if (!data.completedByChapter || typeof data.completedByChapter !== "object") {
-      return { completedByChapter: {} };
-    }
-    return data as ProgressStore;
+    const parsed = JSON.parse(raw);
+    return {
+      completedChapters: Array.isArray(parsed?.completedChapters)
+        ? parsed.completedChapters.map(String)
+        : [],
+      completedQuizzes: Array.isArray(parsed?.completedQuizzes)
+        ? parsed.completedQuizzes.map(String)
+        : [],
+      completedLessons: Array.isArray(parsed?.completedLessons)
+        ? parsed.completedLessons.map(String)
+        : [],
+    };
   } catch {
-    return { completedByChapter: {} };
+    return emptyProgress();
   }
 }
 
-export function getProgressStore(): ProgressStore {
-  if (typeof window === "undefined") return { completedByChapter: {} };
-  return safeParse(window.localStorage.getItem(KEY));
-}
-
-export function setProgressStore(store: ProgressStore) {
+export function saveProgress(progress: UserProgress) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(store));
-  // Permet aux autres composants de réagir
-  window.dispatchEvent(new Event("edustat_progress_updated"));
+  localStorage.setItem(KEY, JSON.stringify(progress));
 }
 
-export function isLessonCompleted(chapterId: string, lessonId: string): boolean {
-  const store = getProgressStore();
-  const list = store.completedByChapter[chapterId] || [];
-  return list.includes(lessonId);
-}
-
-export function toggleLessonCompleted(chapterId: string, lessonId: string): boolean {
-  const store = getProgressStore();
-  const list = new Set(store.completedByChapter[chapterId] || []);
-  if (list.has(lessonId)) list.delete(lessonId);
-  else list.add(lessonId);
-
-  store.completedByChapter[chapterId] = Array.from(list);
-  setProgressStore(store);
-
-  return store.completedByChapter[chapterId].includes(lessonId);
-}
-
-export function getChapterProgress(chapterId: string, chapterLessonIds: string[]) {
-  const store = getProgressStore();
-  const done = new Set(store.completedByChapter[chapterId] || []);
-  const total = chapterLessonIds.length;
-  const completed = chapterLessonIds.filter((id) => done.has(id)).length;
-  const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-  return { total, completed, percent };
-}
-
-// Ajoute à la fin de lib/progress.ts
-
-export function markChapterCompleted(chapterId: string) {
+export function resetProgress() {
   if (typeof window === "undefined") return;
-  const KEY = "edustat_chapters_done_v1";
+  localStorage.removeItem(KEY);
+}
 
-  const read = () => {
-    try {
-      const raw = window.localStorage.getItem(KEY);
-      const arr = raw ? (JSON.parse(raw) as string[]) : [];
-      return Array.isArray(arr) ? arr : [];
-    } catch {
-      return [];
-    }
+/**
+ * ✅ Quiz réussi => quiz complété + chapitre validé
+ */
+export function markQuizCompleted(quizId: string, chapterId: string) {
+  const progress = getProgress();
+
+  const qid = String(quizId ?? "");
+  const cid = String(chapterId ?? "");
+
+  if (qid && !progress.completedQuizzes.includes(qid)) {
+    progress.completedQuizzes.push(qid);
+  }
+
+  if (cid && !progress.completedChapters.includes(cid)) {
+    progress.completedChapters.push(cid);
+  }
+
+  saveProgress(progress);
+}
+
+/**
+ * 🔁 COMPAT :
+ * - isLessonCompleted(lessonId)
+ * - isLessonCompleted(anything, lessonId)
+ */
+export function isLessonCompleted(a: string, b?: string): boolean {
+  const lessonId = b ?? a;
+  const progress = getProgress();
+  return progress.completedLessons.includes(String(lessonId));
+}
+
+/**
+ * 🔁 COMPAT :
+ * - toggleLessonCompleted(lessonId)
+ * - toggleLessonCompleted(anything, lessonId)
+ *
+ * ✅ retourne boolean (nouvel état)
+ */
+export function toggleLessonCompleted(a: string, b?: string): boolean {
+  const lessonId = b ?? a;
+  const progress = getProgress();
+  const id = String(lessonId);
+
+  let nowCompleted = false;
+
+  if (progress.completedLessons.includes(id)) {
+    progress.completedLessons = progress.completedLessons.filter((x) => x !== id);
+    nowCompleted = false;
+  } else {
+    progress.completedLessons.push(id);
+    nowCompleted = true;
+  }
+
+  saveProgress(progress);
+  return nowCompleted;
+}
+
+/**
+ * ✅ Fonction manquante : utilisée par app/chapters/[id]/page.tsx
+ * getChapterProgress(chapterId, lessonIds)
+ */
+export function getChapterProgress(chapterId: string, lessonIds: string[]): ChapterProgress {
+  const progress = getProgress();
+
+  const ids = Array.isArray(lessonIds) ? lessonIds.map(String) : [];
+  const totalLessons = ids.length;
+
+  let completedLessons = 0;
+  for (const id of ids) {
+    if (progress.completedLessons.includes(String(id))) completedLessons += 1;
+  }
+
+  const percent = totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
+
+  // un chapitre est "completed" soit parce qu'il est marqué via quiz,
+  // soit parce que toutes les leçons sont cochées.
+  const isCompleted =
+    progress.completedChapters.includes(String(chapterId)) ||
+    (totalLessons > 0 && completedLessons === totalLessons);
+
+  return {
+    chapterId: String(chapterId),
+    totalLessons,
+    completedLessons,
+    percent,
+    isCompleted,
   };
-
-  const list = new Set(read());
-  list.add(chapterId);
-  window.localStorage.setItem(KEY, JSON.stringify(Array.from(list)));
-  window.dispatchEvent(new Event("edustat_progress_updated"));
 }
 
+/**
+ * Helpers optionnels
+ */
 export function isChapterCompleted(chapterId: string): boolean {
-  if (typeof window === "undefined") return false;
-  const KEY = "edustat_chapters_done_v1";
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    const arr = raw ? (JSON.parse(raw) as string[]) : [];
-    return Array.isArray(arr) ? arr.includes(chapterId) : false;
-  } catch {
-    return false;
-  }
+  const progress = getProgress();
+  return progress.completedChapters.includes(String(chapterId));
+}
+
+export function isQuizCompleted(quizId: string): boolean {
+  const progress = getProgress();
+  return progress.completedQuizzes.includes(String(quizId));
+}
+
+/**
+ * ✅ Optionnel : si ton UI a un "progressTick" pour forcer un re-render
+ * (tu peux l'utiliser ou pas)
+ */
+export function bumpProgressTick(prev: number): number {
+  return prev + 1;
 }

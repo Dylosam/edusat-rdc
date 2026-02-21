@@ -1,4 +1,6 @@
 // lib/types/index.ts
+// lib/types/index.ts
+export * from "./quiz";
 
 export interface User {
   id: string;

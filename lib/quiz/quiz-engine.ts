@@ -1,189 +1,165 @@
 // lib/quiz/quiz-engine.ts
+import type { Quiz, QuizQuestion } from "@/lib/types/quiz";
 
-export type QuizQuestionType = "mcq" | "numeric" | "text";
+/**
+ * Réponses utilisateur :
+ * - single_choice / true_false : string
+ * - text : string
+ * - numeric : number
+ * - multiple_choice : string[]
+ */
+export type QuizAnswerMap = Record<string, string | number | string[]>;
 
-export type QuizQuestion = {
-  id: string;
-
-  // ✅ OBLIGATOIRE pour que l'UI sache quel input afficher
-  type: QuizQuestionType;
-
-  // ✅ texte affiché
-  question: string;
-
-  // ✅ QCM
-  options?: string[];
-
-  // ✅ réponse attendue (string pour mcq/text, number pour numeric)
-  correctAnswer: string | number;
-
-  // ✅ optionnel : sert au feedback "revoir telle leçon"
-  lessonIds?: string[];
-};
-
-export type Quiz = {
-  id: string;
-  title: string;
-
-  // ✅ IMPORTANT : quiz lié à un chapitre
-  chapterId: string;
-
-  // seuil de réussite
-  passPercent?: number; // défaut 70
-
-  questions: QuizQuestion[];
-};
-
-export type QuizAnswerValue = string | number | null;
-export type QuizAnswerMap = Record<string, QuizAnswerValue>;
-
-export type QuizCorrectionItem = {
+export type Correction = {
   questionId: string;
   isCorrect: boolean;
-  chosen: QuizAnswerValue;
-  correctAnswer: string | number;
-  lessonIds: string[];
+  chosen: string | number | string[] | null;
+  correct: string | number | string[];
+  pointsEarned: number;
 };
 
-export type QuizResult = {
-  // ✅ Identité
+export type GradeResult = {
   quizId: string;
-  chapterId: string;
-
-  // ✅ Champs "compat UI" (ceux que ton UI utilisait déjà)
-  score: number; // = correct
-  totalQuestions: number; // = total
-  answers: Record<string, string | number>; // valeurs non-null
-  completedAt: string; // ISO
-
-  // ✅ Champs "moteur"
-  total: number;
-  correct: number;
-  percent: number;
-  passed: boolean;
-  passPercent: number;
-
-  corrections: QuizCorrectionItem[];
-  weakLessonIds: string[];
-
-  createdAt: string; // ISO (alias de completedAt)
+  score: number; // points gagnés
+  totalPoints: number; // points possibles
+  totalQuestions: number;
+  corrections: Correction[];
+  createdAt: string; // ISO
 };
 
-function normalizeText(s: string) {
-  return s.trim().toLowerCase();
+/**
+ * Mini "DB" en mémoire (MVP)
+ * 👉 IMPORTANT : ton type Quiz doit contenir chapterId (voir lib/types/quiz.ts).
+ * 👉 On a supprimé passPercent de Quiz (seuil géré ailleurs).
+ */
+const ENGINE_QUIZZES: Quiz[] = [
+  {
+    id: "demo-1",
+    title: "Quiz Démo",
+    description: "Juste pour tester le moteur",
+    chapterId: "chapter-demo-1",
+    questions: [
+      {
+        id: "q1",
+        type: "single_choice",
+        question: "2 + 2 = ?",
+        options: ["3", "4", "5"],
+        correctAnswer: "4",
+        points: 1,
+      },
+      {
+        id: "q2",
+        type: "true_false",
+        question: "Le soleil est une étoile.",
+        options: ["true", "false"],
+        correctAnswer: "true",
+        points: 1,
+      },
+      {
+        id: "q3",
+        type: "numeric",
+        question: "Racine carrée de 9 = ?",
+        correctAnswer: 3,
+        points: 1,
+      },
+      {
+        id: "q4",
+        type: "text",
+        question: "Écris 'bonjour' en anglais.",
+        correctAnswer: "hello",
+        points: 1,
+      },
+      {
+        id: "q5",
+        type: "multiple_choice",
+        question: "Choisis les nombres pairs.",
+        options: ["1", "2", "3", "4"],
+        correctAnswer: ["2", "4"],
+        points: 2,
+      },
+    ],
+  },
+];
+
+export function getEngineQuizById(id: string): Quiz | null {
+  const q = ENGINE_QUIZZES.find((x) => String(x.id) === String(id));
+  return q ?? null;
 }
 
-export function normalizeAnswers(quiz: Quiz, answers: QuizAnswerMap): QuizAnswerMap {
-  const out: QuizAnswerMap = {};
-  for (const q of quiz.questions) {
-    const v = answers[q.id];
-    out[q.id] = v === undefined ? null : v;
-  }
-  return out;
-}
+export function gradeQuiz(quiz: Quiz, answers: QuizAnswerMap): GradeResult {
+  let score = 0;
+  let totalPoints = 0;
 
-function isAnswerCorrect(q: QuizQuestion, chosen: QuizAnswerValue): boolean {
-  if (chosen === null) return false;
+  const corrections: Correction[] = quiz.questions.map((q) => {
+    const pts = typeof q.points === "number" ? q.points : 1;
+    totalPoints += pts;
 
-  if (q.type === "mcq") {
-    // on compare la string choisie à la bonne string
-    return String(chosen) === String(q.correctAnswer);
-  }
+    const chosen = (answers[q.id] ?? null) as any;
 
-  if (q.type === "numeric") {
-    const chosenNum = typeof chosen === "number" ? chosen : Number(chosen);
-    const correctNum = typeof q.correctAnswer === "number" ? q.correctAnswer : Number(q.correctAnswer);
-    if (Number.isNaN(chosenNum) || Number.isNaN(correctNum)) return false;
-    return chosenNum === correctNum;
-  }
+    const isCorrect = isAnswerCorrect(q, chosen);
 
-  // text
-  return normalizeText(String(chosen)) === normalizeText(String(q.correctAnswer));
-}
+    const pointsEarned = isCorrect ? pts : 0;
+    score += pointsEarned;
 
-export function gradeQuiz(quiz: Quiz, answers: QuizAnswerMap): QuizResult {
-  const passPercent = typeof quiz.passPercent === "number" ? quiz.passPercent : 70;
-  const normalized = normalizeAnswers(quiz, answers);
-
-  let correct = 0;
-  const corrections: QuizCorrectionItem[] = [];
-
-  for (const q of quiz.questions) {
-    const chosen = normalized[q.id] ?? null;
-    const ok = isAnswerCorrect(q, chosen);
-    if (ok) correct += 1;
-
-    corrections.push({
+    return {
       questionId: q.id,
-      isCorrect: ok,
-      chosen,
-      correctAnswer: q.correctAnswer,
-      lessonIds: q.lessonIds ?? [],
-    });
-  }
+      isCorrect,
+      chosen: chosen === undefined ? null : chosen,
+      correct: q.correctAnswer,
+      pointsEarned,
+    };
+  });
 
-  const total = quiz.questions.length;
-  const percent = total === 0 ? 0 : Math.round((correct / total) * 100);
-  const passed = percent >= passPercent;
-
-  // ✅ recos: lessonIds des questions ratées (dédupliqués)
-  const weakLessonIds = Array.from(
-    new Set(
-      corrections
-        .filter((c) => !c.isCorrect)
-        .flatMap((c) => c.lessonIds)
-        .filter(Boolean)
-    )
-  );
-
-  const createdAt = new Date().toISOString();
-
-  // ✅ answers "compat UI": on enlève les null/undefined
-  const answersNonNull: Record<string, string | number> = {};
-  for (const q of quiz.questions) {
-    const v = normalized[q.id];
-    if (v !== null && v !== undefined && String(v).length > 0) {
-      answersNonNull[q.id] = typeof v === "number" ? v : String(v);
-    }
-  }
+  // ✅ IMPORTANT : pas de logique "progression" ici.
+  // Tu l'appelles dans app/quiz/[id]/page.tsx après avoir calculé le résultat.
 
   return {
     quizId: quiz.id,
-    chapterId: quiz.chapterId,
-
-    // compat UI
-    score: correct,
-    totalQuestions: total,
-    answers: answersNonNull,
-    completedAt: createdAt,
-
-    // moteur
-    total,
-    correct,
-    percent,
-    passed,
-    passPercent,
+    score,
+    totalPoints,
+    totalQuestions: quiz.questions.length,
     corrections,
-    weakLessonIds,
-    createdAt,
+    createdAt: new Date().toISOString(),
   };
 }
 
-export function buildQuizFeedback(result: QuizResult): { headline: string; detail: string } {
-  if (result.total === 0) {
-    return { headline: "Quiz vide", detail: "Aucune question trouvée." };
+function isAnswerCorrect(q: QuizQuestion, chosen: any): boolean {
+  if (chosen === null || chosen === undefined) return false;
+
+  // évite les réponses vides
+  if (typeof chosen === "string" && chosen.trim().length === 0) return false;
+  if (Array.isArray(chosen) && chosen.length === 0) return false;
+
+  const type = q.type;
+
+  if (type === "numeric") {
+    const n = typeof chosen === "number" ? chosen : Number(chosen);
+    const expected =
+      typeof q.correctAnswer === "number" ? q.correctAnswer : Number(q.correctAnswer);
+
+    if (!Number.isFinite(n) || !Number.isFinite(expected)) return false;
+
+    // ✅ tolérance légère (plus fiable)
+    const tolerance = 0.01;
+    return Math.abs(n - expected) <= tolerance;
   }
 
-  if (result.passed) {
-    return {
-      headline: `Bravo ✅ ${result.percent}%`,
-      detail: `Tu as réussi (${result.correct}/${result.total}). Chapitre validé.`,
-    };
+  if (type === "multiple_choice") {
+    const expected = Array.isArray(q.correctAnswer)
+      ? q.correctAnswer.map(String)
+      : [String(q.correctAnswer)];
+
+    const picked = Array.isArray(chosen) ? chosen.map(String) : [String(chosen)];
+
+    // même contenu (ordre ignoré)
+    const a = [...expected].map((x) => x.trim().toLowerCase()).sort().join("|");
+    const b = [...picked].map((x) => x.trim().toLowerCase()).sort().join("|");
+
+    return a === b;
   }
 
-  const missing = result.total - result.correct;
-  return {
-    headline: `Encore un effort ⚠️ ${result.percent}%`,
-    detail: `Tu as ${missing} erreur(s). Revois les leçons recommandées puis retente.`,
-  };
+  // text / single_choice / true_false
+  const expected = String(q.correctAnswer ?? "").trim().toLowerCase();
+  const got = String(chosen ?? "").trim().toLowerCase();
+  return expected === got;
 }

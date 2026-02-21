@@ -9,17 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  BookOpen,
-  Clock,
-  Trophy,
-  TrendingUp,
-  ArrowRight,
-  Lock,
-} from 'lucide-react';
+import { BookOpen, Clock, Trophy, TrendingUp, ArrowRight, Lock } from 'lucide-react';
+
 import { mockGetCurrentUser } from '@/lib/mock-api/auth';
 import { getSubjects } from '@/lib/mock-api/data';
-import { User, Subject } from '@/lib/types';
+import type { User, Subject } from '@/lib/types';
 import * as LucideIcons from 'lucide-react';
 
 export default function DashboardPage() {
@@ -29,35 +23,57 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
-      const currentUser = await mockGetCurrentUser();
-      if (!currentUser) {
-        router.push('/auth/login');
-        return;
-      }
-      setUser(currentUser);
+    let alive = true;
 
-      const subjectsData = await getSubjects();
-      setSubjects(subjectsData);
-      setIsLoading(false);
+    const loadData = async () => {
+      try {
+        const currentUser = await mockGetCurrentUser();
+
+        if (!currentUser) {
+          router.push('/auth/login');
+          return;
+        }
+
+        if (!alive) return;
+        setUser(currentUser);
+
+        const subjectsData = await getSubjects();
+        if (!alive) return;
+        setSubjects(subjectsData ?? []);
+      } catch (e) {
+        // En dev, tu peux log pour tracer
+        console.error('[Dashboard] loadData error:', e);
+        if (!alive) return;
+        setSubjects([]);
+      } finally {
+        if (!alive) return;
+        setIsLoading(false);
+      }
     };
 
     loadData();
+
+    return () => {
+      alive = false;
+    };
   }, [router]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
       </div>
     );
   }
 
   const totalProgress =
-    subjects.reduce((acc, subject) => acc + subject.progress, 0) / subjects.length;
+    subjects.length > 0
+      ? subjects.reduce((acc, subject) => acc + (subject.progress ?? 0), 0) / subjects.length
+      : 0;
 
-  const hoursStudied = Math.floor((user?.totalTimeStudied || 0) / 60);
-  const minutesStudied = (user?.totalTimeStudied || 0) % 60;
+  const totalTime = user?.totalTimeStudied ?? 0; // minutes
+  const hoursStudied = Math.floor(totalTime / 60);
+  const minutesStudied = totalTime % 60;
 
   return (
     <div className="min-h-screen bg-background">
@@ -71,10 +87,10 @@ export default function DashboardPage() {
         >
           <div className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold mb-2 font-serif">
-              Bonjour, {user?.name?.split(' ')[0]} !
+              Bonjour, {user?.name?.split(' ')[0] ?? '...' } !
             </h1>
             <p className="text-muted-foreground">
-              Niveau : <span className="font-semibold">{user?.level}</span>
+              Niveau : <span className="font-semibold">{user?.level ?? '—'}</span>
             </p>
           </div>
 
@@ -120,7 +136,7 @@ export default function DashboardPage() {
                 <Trophy className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold capitalize">{user?.subscription}</div>
+                <div className="text-2xl font-bold capitalize">{user?.subscription ?? 'free'}</div>
                 {user?.subscription === 'free' && (
                   <Link href="/subscription">
                     <Button variant="link" className="p-0 h-auto text-xs mt-1">
@@ -144,7 +160,7 @@ export default function DashboardPage() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {subjects.map((subject, index) => {
-              const IconComponent = (LucideIcons as any)[subject.icon] || BookOpen;
+              const IconComponent = (LucideIcons as any)[subject.icon as any] || BookOpen;
               const isPremium = index > 5 && user?.subscription === 'free';
 
               return (
@@ -164,9 +180,9 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       )}
-                      <div
-                        className={`absolute inset-0 opacity-5 bg-gradient-to-br ${subject.color}`}
-                      />
+
+                      <div className={`absolute inset-0 opacity-5 bg-gradient-to-br ${subject.color}`} />
+
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <IconComponent className="h-8 w-8 text-primary" />
@@ -175,6 +191,7 @@ export default function DashboardPage() {
                         <CardTitle className="text-xl mt-4">{subject.name}</CardTitle>
                         <p className="text-sm text-muted-foreground">{subject.description}</p>
                       </CardHeader>
+
                       <CardContent>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
@@ -201,12 +218,10 @@ export default function DashboardPage() {
               <Card className="bg-gradient-to-r from-blue-600/10 to-cyan-600/10 border-blue-600/20">
                 <CardContent className="p-8 text-center">
                   <Trophy className="h-12 w-12 mx-auto mb-4 text-blue-600" />
-                  <h3 className="text-2xl font-bold mb-2 font-serif">
-                    Passez à Premium
-                  </h3>
+                  <h3 className="text-2xl font-bold mb-2 font-serif">Passez à Premium</h3>
                   <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                     Débloquez toutes les matières, accédez à des contenus exclusifs et
-                    bénéficiez d'un suivi personnalisé
+                    bénéficiez d&apos;un suivi personnalisé
                   </p>
                   <Link href="/subscription">
                     <Button size="lg">

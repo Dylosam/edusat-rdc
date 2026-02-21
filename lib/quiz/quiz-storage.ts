@@ -1,43 +1,46 @@
 // lib/quiz/quiz-storage.ts
-import type { QuizResult } from "./quiz-engine";
 
-const KEY = "edusat.quizResults.v1";
+const ANSWERS_KEY = (quizId: string) => `edusat_quiz_answers:${quizId}`;
+const RESULT_KEY = (quizId: string) => `edusat_quiz_result:${quizId}`;
 
-type Store = Record<string, QuizResult[]>; // chapterId -> results[]
+export function saveQuizAnswers(quizId: string, answers: any) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(ANSWERS_KEY(String(quizId)), JSON.stringify(answers ?? {}));
+}
 
-function safeParse<T>(raw: string | null): T | null {
+export function loadQuizAnswers(quizId: string): any | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(ANSWERS_KEY(String(quizId)));
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as T;
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
-function readStore(): Store {
-  if (typeof window === "undefined") return {};
-  const parsed = safeParse<Store>(window.localStorage.getItem(KEY));
-  return parsed ?? {};
-}
-
-function writeStore(store: Store) {
+export function clearQuizAnswers(quizId: string) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(store));
+  localStorage.removeItem(ANSWERS_KEY(String(quizId)));
 }
 
-export function saveQuizResult(result: QuizResult) {
-  const store = readStore();
-  const list = store[result.chapterId] ?? [];
-  store[result.chapterId] = [result, ...list].slice(0, 50);
-  writeStore(store);
+export function saveQuizResult(quizId: string, result: any) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(RESULT_KEY(String(quizId)), JSON.stringify(result ?? null));
 }
 
-export function getChapterQuizResults(chapterId: string): QuizResult[] {
-  const store = readStore();
-  return store[chapterId] ?? [];
+export function loadQuizResult(quizId: string): any | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(RESULT_KEY(String(quizId)));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
-export function getLastChapterQuizResult(chapterId: string): QuizResult | null {
-  const list = getChapterQuizResults(chapterId);
-  return list.length ? list[0] : null;
+export function clearQuizResult(quizId: string) {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(RESULT_KEY(String(quizId)));
 }

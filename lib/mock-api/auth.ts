@@ -11,6 +11,21 @@ const mockUser: User = {
   totalTimeStudied: 12540,
 };
 
+// ✅ Cookie key utilisé par middleware
+const COOKIE_KEY = 'edusat_user';
+
+// ✅ helper cookie (client only)
+function setCookie(name: string, value: string, days = 30) {
+  if (typeof document === 'undefined') return;
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+}
+
+function removeCookie(name: string) {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
 export const mockLogin = async (phoneOrEmail: string, password: string): Promise<User> => {
   await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -46,7 +61,7 @@ export const mockVerifyOTP = async (phone: string, otp: string): Promise<boolean
 };
 
 export const mockGetCurrentUser = async (): Promise<User | null> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('currentUser');
@@ -59,10 +74,11 @@ export const mockGetCurrentUser = async (): Promise<User | null> => {
 };
 
 export const mockLogout = async (): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   if (typeof window !== 'undefined') {
     localStorage.removeItem('currentUser');
+    removeCookie(COOKIE_KEY);
   }
 };
 
@@ -70,8 +86,19 @@ export const setMockCurrentUser = (user: User | null): void => {
   if (typeof window !== 'undefined') {
     if (user) {
       localStorage.setItem('currentUser', JSON.stringify(user));
+
+      // ✅ cookie minimal (pas tout l'user, juste un marqueur)
+      // (évite de stocker des infos perso en clair dans un cookie)
+      setCookie(COOKIE_KEY, user.id);
     } else {
       localStorage.removeItem('currentUser');
+      removeCookie(COOKIE_KEY);
     }
   }
+};
+
+// ✅ utile si tu veux checker rapidement côté client
+export const hasAuthCookie = (): boolean => {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split(';').some(c => c.trim().startsWith(`${COOKIE_KEY}=`));
 };

@@ -2,13 +2,13 @@
 
 export type LessonContentBlock =
   | { type: "text"; value: string }
-  | { type: "formula"; value: string } // LaTeX (affiché en code pour l'instant)
+  | { type: "formula"; value: string }
   | { type: "tip"; value: string }
   | { type: "example"; title?: string; value: string };
 
 export type Lesson = {
-  id: string; // ex: "lesson-c1-1-01"
-  chapterId: string; // DOIT matcher l'URL /chapters/[id] (ex: "c1-1")
+  id: string;
+  chapterId: string; // doit matcher /chapters/[id]
   title: string;
   summary?: string;
   content: LessonContentBlock[];
@@ -17,9 +17,13 @@ export type Lesson = {
   isPremium?: boolean;
 };
 
+function norm(v: any) {
+  return String(v ?? "").trim().toLowerCase().replace(/\s+/g, "-");
+}
+
 export const lessons: Lesson[] = [
   // =========================
-  // Chapitre: c1-1 (Introduction aux fonctions)
+  // Chapitre: c1-1
   // =========================
   {
     id: "lesson-c1-1-01",
@@ -74,7 +78,10 @@ export const lessons: Lesson[] = [
         value:
           "« Le double d’un nombre augmenté de 5 » → 2x + 5. « Le carré d’un nombre diminué de 1 » → x² − 1.",
       },
-      { type: "formula", value: "g(x)=x^2-1 \\quad \\Rightarrow \\quad g(4)=16-1=15" },
+      {
+        type: "formula",
+        value: "g(x)=x^2-1 \\quad \\Rightarrow \\quad g(4)=16-1=15",
+      },
     ],
   },
   {
@@ -106,18 +113,78 @@ export const lessons: Lesson[] = [
       {
         type: "example",
         title: "Racine carrée",
-        value:
-          "Si h(x)=√(x−5), il faut x−5 ≥ 0 donc x ≥ 5.",
+        value: "Si h(x)=√(x−5), il faut x−5 ≥ 0 donc x ≥ 5.",
       },
       { type: "formula", value: "h(x)=\\sqrt{x-5} \\Rightarrow x\\ge 5" },
+    ],
+  },
+
+  // =========================
+  // Chapitre: c2-1 (EXEMPLE) ✅
+  // =========================
+  {
+    id: "lesson-c2-1-01",
+    chapterId: "c2-1",
+    title: "Introduction (c2-1)",
+    summary: "Objectif du chapitre et notions à retenir.",
+    durationMin: 8,
+    order: 1,
+    isPremium: false,
+    content: [
+      {
+        type: "text",
+        value:
+          "Dans ce chapitre, nous allons poser les bases essentielles. Suis les leçons dans l’ordre puis valide avec le quiz.",
+      },
+      {
+        type: "tip",
+        value:
+          "Astuce : note les définitions importantes au fur et à mesure. Le quiz teste surtout les bases.",
+      },
+    ],
+  },
+  {
+    id: "lesson-c2-1-02",
+    chapterId: "c2-1",
+    title: "Définitions (c2-1)",
+    summary: "Les définitions clés du chapitre.",
+    durationMin: 12,
+    order: 2,
+    isPremium: false,
+    content: [
+      {
+        type: "text",
+        value:
+          "Voici les définitions clés que vous devez maîtriser pour ce chapitre.",
+      },
+      { type: "formula", value: "f(x)=ax^2+bx+c" },
+      {
+        type: "example",
+        title: "Exemple",
+        value:
+          "Si f(x)=x^2+2x+1, alors f(1)=1+2+1=4.",
+      },
     ],
   },
 ];
 
 // Helpers
 export function getLessonsByChapter(chapterId: string) {
+  const target = norm(chapterId);
+
   return lessons
-    .filter((l) => l.chapterId === chapterId)
+    .filter((l) => {
+      const cid = norm(l.chapterId);
+
+      // ✅ match strict
+      if (cid === target) return true;
+
+      // ✅ match tolérant (au cas où tu as des prefix genre "chapter-c2-1")
+      if (cid === `chapter-${target}`) return true;
+      if (`chapter-${cid}` === target) return true;
+
+      return false;
+    })
     .sort((a, b) => a.order - b.order);
 }
 
