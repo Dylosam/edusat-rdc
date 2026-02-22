@@ -28,9 +28,7 @@ export default function LoginPage() {
       const user = await mockLogin(formData.phoneOrEmail, formData.password);
       setMockCurrentUser(user);
       toast.success('Connexion réussie !');
-      const next = new URLSearchParams(window.location.search).get('next');
-router.push(next || '/dashboard');
-
+      router.push('/dashboard');
     } catch (error) {
       toast.error('Identifiants incorrects');
     } finally {
