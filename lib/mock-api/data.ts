@@ -1,334 +1,307 @@
 // lib/mock-api/data.ts
+// ✅ “Back to normal” data gateway (subjects + chapters + lessons + quiz + dashboard)
 
-import type {
-  Subject,
-  Chapter,
-  CourseContent,
-  Exercise,
-  Quiz,
-  QuizResult,
-  Progress,
-  SchoolPeriod,
-} from "@/lib/types";
+import * as SubjectsModule from "@/lib/mock-data/subjects";
+import * as ChaptersModule from "@/lib/mock-data/chapters";
+import * as LessonsModule from "@/lib/data/lessons";
+import * as QuizzesModule from "@/lib/mock-api/quizzes";
 
-import { mockSubjects, mockChapters } from "@/lib/mock-data/subjects";
-
-import { getChapterStatus, setChapterStatus, saveQuizResult, readProgressStore } from "@/lib/progress/index";
-
+import { readProgressStore } from "@/lib/progress/index";
 import { isQuizPassed, scorePercent } from "@/lib/progress/quiz";
 
-/**
- * ✅ Typage local du store pour éviter:
- * - "r is unknown"
- * - "Object is of type unknown"
- * - reduce/filter sur unknown
- */
-type ProgressStore = {
-  quizResults?: Record<string, QuizResult>;
-  timeSpentBySubject?: Record<string, number>;
+type AnyObj = Record<string, any>;
+
+export type Subject = {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string;
+  level?: string;
+  icon?: string;
+  color?: string;
 };
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+export type Chapter = {
+  id: string;
+  subjectId?: string;
+  subjectSlug?: string;
+  title: string;
+  description?: string;
+  estimatedMinutes?: number;
+  order?: number;
+};
+
+export type Lesson = {
+  id: string;
+  chapterId: string;
+  title: string;
+  minutes?: number;
+  content?: string;
+  katex?: string;
+  order?: number;
+};
+
+export type Quiz = {
+  id: string;
+  chapterId?: string;
+  title?: string;
+  passMarkPercent?: number;
+  questions?: any[];
+};
+
+// -------------------- helpers --------------------
+
+function toStr(x: any): string {
+  return String(x ?? "").trim();
 }
 
-function applyChapterStatus(chapter: Chapter): Chapter {
-  const stored = getChapterStatus(chapter.subjectId, chapter.id);
-  if (!stored) return chapter;
-  return { ...chapter, status: stored };
+function slugify(s: string): string {
+  return toStr(s)
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]/g, "");
 }
 
-/* =========================
-   SUBJECTS
-   ========================= */
-
-export const getSubjects = async (): Promise<Subject[]> => {
-  await sleep(150);
-  return mockSubjects;
-};
-
-export const getSubjectBySlug = async (slug: string): Promise<Subject | null> => {
-  await sleep(120);
-  return mockSubjects.find((s) => s.slug === slug) || null;
-};
-
-/* =========================
-   CHAPTERS
-   ========================= */
-
-export const getChaptersBySubject = async (subjectId: string): Promise<Chapter[]> => {
-  await sleep(150);
-  return (mockChapters[subjectId] || []).map(applyChapterStatus);
-};
-
-export const getChapterById = async (chapterId: string): Promise<Chapter | null> => {
-  await sleep(120);
-
-  for (const chapters of Object.values(mockChapters)) {
-    const chapter = chapters.find((c) => c.id === chapterId);
-    if (chapter) return applyChapterStatus(chapter);
+function pickFirstArray(moduleObj: AnyObj): any[] {
+  // 1) direct array exports
+  for (const v of Object.values(moduleObj)) {
+    if (Array.isArray(v)) return v;
   }
+  // 2) object exports containing an array
+  for (const v of Object.values(moduleObj)) {
+    if (v && typeof v === "object") {
+      for (const vv of Object.values(v)) {
+        if (Array.isArray(vv)) return vv;
+      }
+    }
+  }
+  return [];
+}
 
-  return null;
-};
+function normalizeSubjects(raw: any[]): Subject[] {
+  const arr = Array.isArray(raw) ? raw : [];
 
-/* =========================
-   COURSE CONTENT
-   ========================= */
+  return arr.map((x: AnyObj, idx: number) => {
+    const id = toStr(x.id || x.slug || idx);
+    const slug = slugify(x.slug || x.id || x.title || x.name || id);
+    const title = toStr(x.title || x.name || `Matière ${idx + 1}`);
 
-export const getCourseContent = async (chapterId: string): Promise<CourseContent> => {
-  await sleep(120);
+    return { id, slug, title, ...x };
+  });
+}
 
-  return {
-    id: chapterId,
-    chapterId,
-    content: "Contenu du cours",
-    sections: [
-      {
-        title: "Introduction",
-        content:
-          "Dans ce chapitre, nous allons explorer les concepts fondamentaux nécessaires pour comprendre ce sujet en profondeur.",
-      },
-      {
-        title: "Définitions",
-        content: "Voici les définitions clés que vous devez maîtriser.",
-        latex: "$$f(x) = ax^2 + bx + c$$",
-      },
-      {
-        title: "Exemples",
-        content: "Étudions quelques exemples concrets pour bien comprendre.",
-      },
-      {
-        title: "Applications",
-        content:
-          "Ces concepts trouvent de nombreuses applications dans la vie quotidienne et dans d'autres domaines scientifiques.",
-      },
-    ],
-  };
-};
+function normalizeChapters(raw: any[], subject?: Subject | null): Chapter[] {
+  const arr = Array.isArray(raw) ? raw : [];
 
-/* =========================
-   EXERCISES
-   ========================= */
+  const out = arr.map((x: AnyObj, idx: number) => ({
+    id: toStr(x.id || x.chapterId || idx),
+    subjectId: x.subjectId ? toStr(x.subjectId) : subject?.id,
+    subjectSlug: x.subjectSlug ? toStr(x.subjectSlug) : subject?.slug,
+    title: toStr(x.title || x.name || `Chapitre ${idx + 1}`),
+    description: x.description,
+    estimatedMinutes: x.estimatedMinutes ?? x.minutes,
+    order: x.order ?? idx + 1,
+    ...x,
+  }));
 
-export const getExercises = async (chapterId: string): Promise<Exercise[]> => {
-  await sleep(120);
+  return out.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+}
 
-  return [
-    {
-      id: "ex1",
-      chapterId,
-      question: "Résolvez l'équation suivante :",
-      solution: "x = 5",
-      difficulty: "easy",
-      latex: "$$2x + 5 = 15$$",
-    },
-    {
-      id: "ex2",
-      chapterId,
-      question: "Calculez la dérivée de la fonction :",
-      solution: "f'(x) = 2x + 3",
-      difficulty: "medium",
-      latex: "$$f(x) = x^2 + 3x + 1$$",
-    },
-    {
-      id: "ex3",
-      chapterId,
-      question: "Déterminez l'intégrale suivante :",
-      solution: "(1/3)x³ + C",
-      difficulty: "hard",
-      latex: "$$\\int x^2 \\, dx$$",
-    },
-  ];
-};
+function normalizeLessons(raw: any[], chapterId: string): Lesson[] {
+  const arr = Array.isArray(raw) ? raw : [];
 
-/* =========================
-   QUIZ
-   ========================= */
+  const out = arr.map((x: AnyObj, idx: number) => ({
+    id: toStr(x.id || x.lessonId || idx),
+    chapterId: toStr(x.chapterId || chapterId),
+    title: toStr(x.title || x.name || `Leçon ${idx + 1}`),
+    minutes: x.minutes ?? x.estimatedMinutes,
+    content: x.content,
+    katex: x.katex,
+    order: x.order ?? idx + 1,
+    ...x,
+  }));
 
-export const getQuiz = async (chapterId: string): Promise<Quiz> => {
-  await sleep(120);
+  return out.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+}
 
-  return {
-    id: `quiz-${chapterId}`,
-    chapterId,
-    title: "Quiz de validation",
-    timeLimit: 600,
-    questions: [
-      {
-        id: "q1",
-        type: "mcq",
-        question: "Quelle est la dérivée de x² ?",
-        latex: "$$\\frac{d}{dx}(x^2)=?$$",
-        options: ["x", "2x", "x²", "2x²"],
-        correctAnswer: "2x",
-        explanation: "La dérivée de x² est 2x selon la règle de dérivation des puissances.",
-      },
-      {
-        id: "q2",
-        type: "numeric",
-        question: "Résolvez : 3x + 7 = 22. Quelle est la valeur de x ?",
-        latex: "$$3x+7=22$$",
-        correctAnswer: 5,
-        explanation: "3x = 22 - 7 = 15, donc x = 15/3 = 5",
-      },
-      {
-        id: "q3",
-        type: "mcq",
-        question: "Laquelle de ces fonctions est croissante sur ℝ ?",
-        options: ["f(x) = -x", "f(x) = x²", "f(x) = 2x + 1", "f(x) = -x²"],
-        correctAnswer: "f(x) = 2x + 1",
-        explanation: "Une fonction affine avec un coefficient positif est toujours croissante.",
-      },
-      {
-        id: "q4",
-        type: "numeric",
-        question: "Calculez : 5 × 8 + 12 ÷ 4",
-        correctAnswer: 43,
-        explanation: "5 × 8 = 40, puis 12 ÷ 4 = 3, donc 40 + 3 = 43",
-      },
-    ],
-  };
-};
+// -------------------- SUBJECTS --------------------
 
-export const submitQuiz = async (
-  quizId: string,
-  answers: Record<string, string | number>
-): Promise<QuizResult> => {
-  await sleep(150);
+export async function getSubjects(): Promise<Subject[]> {
+  const raw = pickFirstArray(SubjectsModule as AnyObj);
+  return normalizeSubjects(raw);
+}
 
-  const chapterId = quizId.replace("quiz-", "");
-  const quiz = await getQuiz(chapterId);
+export async function getSubjectBySlug(slug: string): Promise<Subject | null> {
+  const subjects = await getSubjects();
+  const key = slugify(slug);
 
-  let correct = 0;
-  quiz.questions.forEach((q) => {
-    if (String(answers[q.id]) === String(q.correctAnswer)) correct++;
+  return (
+    subjects.find((s) => slugify(s.slug) === key) ??
+    subjects.find((s) => slugify(s.id) === key) ??
+    null
+  );
+}
+
+// -------------------- CHAPTERS --------------------
+
+/**
+ * ✅ attendu par app/subjects/[slug]/page.tsx
+ */
+export async function getChaptersBySubject(subjectIdOrSlug: string): Promise<Chapter[]> {
+  const key = slugify(subjectIdOrSlug);
+
+  const subjects = await getSubjects();
+  const subject =
+    subjects.find((s) => slugify(s.slug) === key || slugify(s.id) === key) ?? null;
+
+  // Chapters source = lib/mock-data/chapters.ts
+  const chaptersRaw = pickFirstArray(ChaptersModule as AnyObj) as AnyObj[];
+  const list = Array.isArray(chaptersRaw) ? chaptersRaw : [];
+
+  // Filtrage robuste:
+  // - subjectSlug == slug
+  // - subjectId == id
+  const filtered = list.filter((c) => {
+    const sid = slugify(c?.subjectId);
+    const sslug = slugify(c?.subjectSlug);
+
+    if (subject) {
+      return sid === slugify(subject.id) || sslug === slugify(subject.slug);
+    }
+    // fallback si on n’a pas trouvé le subject
+    return sid === key || sslug === key;
   });
 
-  const result: QuizResult = {
-    quizId,
-    score: correct,
-    totalQuestions: quiz.questions.length,
-    answers,
-    completedAt: new Date().toISOString(),
-  };
+  return normalizeChapters(filtered, subject);
+}
 
-  // 1) Save quiz result
-  saveQuizResult(result);
+export async function getChapterById(chapterId: string): Promise<Chapter | null> {
+  const id = slugify(chapterId);
+  const chaptersRaw = pickFirstArray(ChaptersModule as AnyObj) as AnyObj[];
+  const list = Array.isArray(chaptersRaw) ? chaptersRaw : [];
 
-  // 2) Mark chapter completed if passed (>=60%)
-  const chapter = await getChapterById(chapterId);
-  if (chapter) {
-    if (isQuizPassed(result, 60)) {
-      setChapterStatus(chapter.subjectId, chapter.id, "completed");
-    } else {
-      const current = getChapterStatus(chapter.subjectId, chapter.id);
-      if (!current || current === "not-started") {
-        setChapterStatus(chapter.subjectId, chapter.id, "in-progress");
+  const found =
+    list.find((c) => slugify(c?.id) === id || slugify(c?.chapterId) === id) ?? null;
+
+  if (!found) return null;
+
+  // complète subject info si possible
+  const subjectSlug = toStr(found?.subjectSlug);
+  const subject = subjectSlug ? await getSubjectBySlug(subjectSlug) : null;
+
+  return normalizeChapters([found], subject)[0] ?? null;
+}
+
+// -------------------- LESSONS --------------------
+
+export async function getLessonsByChapterId(chapterId: string): Promise<Lesson[]> {
+  const id = toStr(chapterId);
+
+  // 1) si le module expose une fonction
+  const fn = (LessonsModule as AnyObj).getLessonsByChapterId;
+  if (typeof fn === "function") {
+    const raw = await fn(id);
+    return normalizeLessons(raw, id);
+  }
+
+  // 2) si le module expose une map
+  const map =
+    (LessonsModule as AnyObj).lessonsByChapter ??
+    (LessonsModule as AnyObj).LESSONS_BY_CHAPTER ??
+    null;
+
+  if (map && typeof map === "object" && Array.isArray(map[id])) {
+    return normalizeLessons(map[id], id);
+  }
+
+  return [];
+}
+
+export async function getLessonById(lessonId: string): Promise<Lesson | null> {
+  const target = slugify(lessonId);
+
+  const map =
+    (LessonsModule as AnyObj).lessonsByChapter ??
+    (LessonsModule as AnyObj).LESSONS_BY_CHAPTER ??
+    null;
+
+  if (map && typeof map === "object") {
+    for (const arr of Object.values(map)) {
+      if (Array.isArray(arr)) {
+        const found = (arr as AnyObj[]).find(
+          (l) => slugify(l?.id) === target || slugify(l?.lessonId) === target
+        );
+        if (found) return normalizeLessons([found], toStr(found.chapterId || ""))[0] ?? null;
       }
     }
   }
 
-  return result;
-};
+  const fn = (LessonsModule as AnyObj).getLessonById;
+  if (typeof fn === "function") {
+    const raw = await fn(lessonId);
+    if (!raw) return null;
+    return normalizeLessons([raw], toStr(raw.chapterId || ""))[0] ?? null;
+  }
 
-/* =========================
-   PROGRESS
-   ========================= */
+  return null;
+}
 
-export const getProgress = async (subjectId: string): Promise<Progress> => {
-  await sleep(100);
+// -------------------- QUIZZES --------------------
 
-  const subject = mockSubjects.find((s) => s.id === subjectId);
-  const chapters = mockChapters[subjectId] || [];
-  const totalChapters = subject?.chaptersCount || chapters.length || 0;
+export async function getQuizById(quizId: string): Promise<Quiz | null> {
+  const target = slugify(quizId);
 
-  // chaptersCompleted
-  const chaptersCompleted = chapters.filter((c) => {
-    const status = getChapterStatus(subjectId, c.id) ?? c.status;
-    return status === "completed";
+  const fn = (QuizzesModule as AnyObj).getQuizById;
+  if (typeof fn === "function") {
+    return (await fn(quizId)) ?? null;
+  }
+
+  const arr = pickFirstArray(QuizzesModule as AnyObj) as AnyObj[];
+  const found = (arr || []).find((q) => slugify(q?.id) === target) ?? null;
+
+  return found ? (found as Quiz) : null;
+}
+
+// -------------------- DASHBOARD / STATS --------------------
+
+export async function getDashboardSnapshot() {
+  const subjects = await getSubjects();
+
+  const store = readProgressStore() as AnyObj;
+  const chaptersStatus: AnyObj = store?.chapters ?? store?.chapterStatus ?? {};
+  const quizzes: AnyObj = store?.quizzes ?? store?.quizResults ?? {};
+  const minutes = Number(store?.stats?.minutesStudied ?? store?.minutesStudied ?? 0);
+
+  const chapterIds = Object.keys(chaptersStatus || {});
+  const totalChapters = chapterIds.length;
+
+  const doneChapters = chapterIds.filter((id) => {
+    const s = chaptersStatus[id];
+    return Boolean(s?.completed || s?.isCompleted || s === "done" || s === true);
   }).length;
 
-  // quizzes passed + averageScore (uniquement les quiz du subject)
-  const store = readProgressStore() as unknown as ProgressStore;
+  const progressPercent = totalChapters > 0 ? Math.round((doneChapters / totalChapters) * 100) : 0;
 
-  const chapterIds = new Set(chapters.map((c) => c.id));
-  const quizResults: QuizResult[] = Object.values(store.quizResults ?? {}).filter((r) => {
-    const chId = r.quizId.replace("quiz-", "");
-    return chapterIds.has(chId);
-  });
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
 
-  const passed = quizResults.filter((r) => isQuizPassed(r, 60)).length;
+  const quizEntries = Object.values(quizzes || {}) as AnyObj[];
+  const passed = quizEntries.filter((r) => {
+    const correct = Number(r?.correct ?? 0);
+    const total = Number(r?.total ?? 0);
+    const passMark = Number(r?.passMarkPercent ?? 60);
+    return isQuizPassed({ correct, total }, passMark);
+  }).length;
 
-  const avgScore =
-    quizResults.length === 0
-      ? 0
-      : quizResults.reduce((acc, r) => acc + scorePercent(r), 0) / quizResults.length;
+  const quizPassPercent = quizEntries.length ? Math.round((passed / quizEntries.length) * 100) : 0;
 
   return {
-    subjectId,
-    chaptersCompleted,
-    totalChapters,
-    quizzesPassed: passed,
-    averageScore: Math.round(avgScore),
-    timeSpent: store.timeSpentBySubject?.[subjectId] || 0,
+    subjectsCount: subjects.length,
+    progressPercent,
+    studiedTimeLabel: `${hours}h ${mins}m`,
+    quizPassPercent,
   };
-};
+}
 
-/* =========================
-   SCHOOL PERIODS
-   ========================= */
-
-export const getSchoolPeriods = async (): Promise<SchoolPeriod[]> => {
-  await sleep(100);
-
-  return [
-    {
-      id: "1",
-      name: "Premier Trimestre",
-      startDate: "2024-09-15",
-      endDate: "2024-12-20",
-      type: "term",
-    },
-    {
-      id: "2",
-      name: "Examens Trimestriels",
-      startDate: "2024-12-10",
-      endDate: "2024-12-20",
-      type: "exam",
-    },
-    {
-      id: "3",
-      name: "Vacances de Noël",
-      startDate: "2024-12-21",
-      endDate: "2025-01-05",
-      type: "holiday",
-    },
-    {
-      id: "4",
-      name: "Deuxième Trimestre",
-      startDate: "2025-01-06",
-      endDate: "2025-03-28",
-      type: "term",
-    },
-    {
-      id: "5",
-      name: "Examens de Pâques",
-      startDate: "2025-03-20",
-      endDate: "2025-03-28",
-      type: "exam",
-    },
-  ];
-};
-
-export const updateChapterStatus = async (
-  chapterId: string,
-  status: Chapter["status"]
-): Promise<void> => {
-  await sleep(80);
-
-  const chapter = await getChapterById(chapterId);
-  if (!chapter) return;
-
-  setChapterStatus(chapter.subjectId, chapter.id, status);
-};
+// Alias rétro-compat si ton dashboard utilise encore getStats()
+export const getStats = getDashboardSnapshot;

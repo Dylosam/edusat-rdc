@@ -7,19 +7,18 @@ export type QuestionType =
   | "numeric"
   | "text";
 
-export interface QuizQuestion {
+export type QuizQuestion = {
   id: string;
-  type: QuestionType;
+  type: "single_choice" | "multiple_choice" | "true_false" | "numeric" | "text";
   question: string;
-
   options?: string[];
-
-  // réponse correcte
-  correctAnswer: string | string[] | number;
-
+  correctAnswer: any;
   explanation?: string;
-  points?: number; // défaut 1
-}
+  points?: number;
+
+  // ✅ NEW (optionnel): question -> leçon à réviser
+  lessonId?: string;
+};
 
 // lib/types/quiz.ts
 // ... garde tout ce que tu as déjà ...
@@ -54,3 +53,4 @@ export type QuizResult = {
 };
 // lib/types/quiz.ts
 // ... garde tout ce que tu as déjà ...
+// lib/types/quiz.ts

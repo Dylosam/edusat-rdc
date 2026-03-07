@@ -11,8 +11,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
-import { GraduationCap, User, LogOut, Settings, Moon, Sun } from 'lucide-react';
+import {
+  GraduationCap,
+  User,
+  LogOut,
+  Settings,
+  Moon,
+  Sun,
+  Wrench,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { mockGetCurrentUser, mockLogout } from '@/lib/mock-api/auth';
 import { User as UserType } from '@/lib/types';
@@ -57,9 +68,7 @@ export function DashboardNav() {
                   key={item.href}
                   href={item.href}
                   className={`text-sm font-medium transition-colors hover:text-primary ${
-                    pathname === item.href
-                      ? 'text-primary'
-                      : 'text-muted-foreground'
+                    pathname === item.href ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
                   {item.label}
@@ -85,27 +94,56 @@ export function DashboardNav() {
                   <User className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="w-56"
+              >
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium">{user?.name}</p>
                     <p className="text-xs text-muted-foreground">{user?.phone}</p>
                   </div>
                 </DropdownMenuLabel>
+
                 <DropdownMenuSeparator />
+
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     Profil
                   </Link>
                 </DropdownMenuItem>
+
                 <DropdownMenuItem asChild>
                   <Link href="/subscription" className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
                     Abonnement
                   </Link>
                 </DropdownMenuItem>
+
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="cursor-pointer">
+                    <Wrench className="mr-2 h-4 w-4" />
+                    Outils
+                  </DropdownMenuSubTrigger>
+
+                  <DropdownMenuSubContent className="w-52">
+                    <DropdownMenuItem asChild>
+                      <Link href="/outils/horaire">Horaire de cours</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/outils/tableau-periodique">Tableau périodique</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/outils/tableau-statistique">Tableau statistique</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
                 <DropdownMenuSeparator />
+
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Déconnexion

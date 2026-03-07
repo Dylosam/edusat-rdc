@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -10,15 +10,36 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { BookOpen, Search, Lock } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+
 import { mockGetCurrentUser } from '@/lib/mock-api/auth';
 import { getSubjects } from '@/lib/mock-api/data';
-import { User, Subject } from '@/lib/types';
-import * as LucideIcons from 'lucide-react';
+
+// ✅ pour typer le user (mock auth retourne ce type chez toi)
+import type { User } from '@/lib/types';
+
+// -----------
+// UI ViewModel (anti-mismatch types)
+// -----------
+type SubjectVM = {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  icon: string;
+  color?: string;
+  chaptersCount: number;
+  progress: number;
+};
 
 export default function SubjectsPage() {
   const router = useRouter();
+
   const [user, setUser] = useState<User | null>(null);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+
+  // ✅ on stocke le RAW (ce que renvoie mock-api)
+  const [subjectsRaw, setSubjectsRaw] = useState<any[]>([]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -29,19 +50,64 @@ export default function SubjectsPage() {
         router.push('/auth/login');
         return;
       }
-      setUser(currentUser);
+      setUser(currentUser as any);
 
       const subjectsData = await getSubjects();
-      setSubjects(subjectsData);
+      setSubjectsRaw(subjectsData as any);
+
       setIsLoading(false);
     };
 
     loadData();
   }, [router]);
 
-  const filteredSubjects = subjects.filter((subject) =>
-    subject.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // ✅ adapter Subjects -> SubjectVM (stable pour l’UI)
+  const subjects: SubjectVM[] = useMemo(() => {
+    return (subjectsRaw ?? []).map((s: any, idx: number) => {
+      const id = String(s.id ?? idx);
+      const slug = String(s.slug ?? s.code ?? s.id ?? id);
+
+      // Certains mocks ont title au lieu de name
+      const name = String(s.name ?? s.title ?? s.label ?? 'Matière');
+
+      const description = s.description ?? s.desc ?? '';
+
+      // icon peut être un nom lucide (ex: "BookOpen", "Calculator", ...)
+      const icon = typeof s.icon === 'string' ? s.icon : 'BookOpen';
+
+      // color attend une classe tailwind de gradient, sinon fallback safe
+      const color =
+        typeof s.color === 'string' && s.color.trim().length
+          ? s.color
+          : 'from-primary/30 to-primary/5';
+
+      const chaptersCount = Number(
+        s.chaptersCount ??
+          s.chapters_count ??
+          (Array.isArray(s.chapters) ? s.chapters.length : 0) ??
+          0
+      );
+
+      const progress = Number(s.progress ?? 0);
+
+      return {
+        id,
+        slug,
+        name,
+        description,
+        icon,
+        color,
+        chaptersCount,
+        progress,
+      };
+    });
+  }, [subjectsRaw]);
+
+  const filteredSubjects = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return subjects;
+    return subjects.filter((subject) => subject.name.toLowerCase().includes(q));
+  }, [subjects, searchQuery]);
 
   if (isLoading) {
     return (
@@ -72,7 +138,7 @@ export default function SubjectsPage() {
 
           <div className="mb-8 max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher une matière..."
                 value={searchQuery}
@@ -84,7 +150,10 @@ export default function SubjectsPage() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredSubjects.map((subject, index) => {
-              const IconComponent = (LucideIcons as any)[subject.icon] || BookOpen;
+              const iconKey = subject.icon || 'BookOpen';
+const IconComponent = (LucideIcons as any)[subject.icon ?? 'BookOpen'] || BookOpen;
+
+              // ✅ si tu gardes encore une logique premium, elle reste ici
               const isPremium = index > 5 && user?.subscription === 'free';
 
               return (
@@ -104,17 +173,28 @@ export default function SubjectsPage() {
                           </div>
                         </div>
                       )}
+
                       <div
                         className={`absolute inset-0 opacity-5 bg-gradient-to-br ${subject.color}`}
                       />
+
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <IconComponent className="h-8 w-8 text-primary" />
-                          <Badge variant="secondary">{subject.chaptersCount} chapitres</Badge>
+                          <Badge variant="secondary">
+                            {subject.chaptersCount} chapitres
+                          </Badge>
                         </div>
+
                         <CardTitle className="text-xl mt-4">{subject.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{subject.description}</p>
+
+                        {subject.description ? (
+                          <p className="text-sm text-muted-foreground">
+                            {subject.description}
+                          </p>
+                        ) : null}
                       </CardHeader>
+
                       <CardContent>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
@@ -135,9 +215,7 @@ export default function SubjectsPage() {
             <div className="text-center py-12">
               <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">Aucune matière trouvée</h3>
-              <p className="text-muted-foreground">
-                Essayez de modifier votre recherche
-              </p>
+              <p className="text-muted-foreground">Essayez de modifier votre recherche</p>
             </div>
           )}
         </motion.div>

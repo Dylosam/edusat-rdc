@@ -20,6 +20,10 @@ export const mockQuizzes: Quiz[] = [
         correctAnswer: "4",
         explanation: "Addition simple.",
         points: 1,
+
+        // ✅ NEW: si l'élève rate, on lui propose direct la leçon
+        // Mets ici l'ID réel d'une leçon dans lib/data/lessons.ts
+        lessonId: "l1",
       },
     ],
   },

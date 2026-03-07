@@ -23,7 +23,7 @@ import {
   RotateCcw,
   Clock,
 } from "lucide-react";
-
+import { markStepDone } from "@/lib/study/progress";
 import type { Quiz, QuizQuestion } from "@/lib/types/quiz";
 import { getQuizById } from "@/lib/quiz/data";
 import { computeQuizResult } from "@/lib/quiz/score";
@@ -415,9 +415,21 @@ export default function QuizPage() {
 
     // ✅ progression : chapitre validé si réussi
     if (res.passed) {
-      // markQuizCompleted attend (quizId, chapterId) chez toi d'après ton code
-      markQuizCompleted(quiz.id, (quiz as any).chapterId);
-    }
+  const chapterIdResolved = resolveChapterId(quiz, quizId);
+
+  // ✅ Progress globale (ton système /lib/progress)
+  if (chapterIdResolved) {
+    markQuizCompleted(quiz.id, chapterIdResolved);
+  } else {
+    // fallback si vraiment rien
+    markQuizCompleted(quiz.id, (quiz as any).chapterId);
+  }
+
+  // ✅ Progress Study Steps (chapitre -> étape quiz validée)
+  if (chapterIdResolved) {
+    markStepDone(chapterIdResolved, `quiz:${quiz.id}`);
+  }
+}
 
     // ✅ stats locales
     const startedAt = startedAtRef.current ?? Date.now();
@@ -480,6 +492,22 @@ export default function QuizPage() {
     const passed = res.passed;
 
     const chapterIdResolved = resolveChapterId(quiz, quizId);
+
+    useEffect(() => {
+  if (!quiz) return;
+
+  const saved = loadQuizResult(quizId) as StoredQuizResult | null;
+  if (!saved?.passed) return;
+
+  const chapterIdResolved = resolveChapterId(quiz, quizId);
+  if (!chapterIdResolved) return;
+
+  // ✅ idempotent : marquer "quiz:<id>" done (si déjà fait, aucun souci)
+  markStepDone(chapterIdResolved, `quiz:${quiz.id}`);
+
+  // ✅ progress globale aussi
+  markQuizCompleted(quiz.id, chapterIdResolved);
+}, [quiz, quizId]);
 
     const goBackToChapter = () => {
       if (!chapterIdResolved) {
