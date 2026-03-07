@@ -195,3 +195,15 @@ export function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
   return Number.isInteger(value) ? String(value) : String(value);
 }
+
+export function createStatisticSheetRow(): {
+  id: string;
+  xi: string;
+  ni: string;
+} {
+  return {
+    id: crypto.randomUUID(),
+    xi: '',
+    ni: '',
+  };
+}

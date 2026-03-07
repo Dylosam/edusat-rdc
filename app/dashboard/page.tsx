@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -19,26 +19,60 @@ import {
 } from 'lucide-react';
 import { mockGetCurrentUser } from '@/lib/mock-api/auth';
 import { getSubjects } from '@/lib/mock-api/data';
-import { User, Subject } from '@/lib/types';
+import type { User } from '@/lib/types';
 import * as LucideIcons from 'lucide-react';
+
+type DashboardSubject = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  chaptersCount: number;
+  progress: number;
+};
+
+type IconComponentType = ComponentType<{ className?: string }>;
+
+function normalizeSubject(subject: any): DashboardSubject {
+  return {
+    id: String(subject.id ?? subject.slug ?? `subject-${Math.random().toString(36).slice(2)}`),
+    slug: String(subject.slug ?? subject.id ?? ''),
+    name: String(subject.name ?? subject.title ?? 'Matière'),
+    description: String(subject.description ?? subject.summary ?? ''),
+    icon: String(subject.icon ?? 'BookOpen'),
+    color: String(subject.color ?? 'from-primary/20 to-primary/5'),
+    chaptersCount: Array.isArray(subject.chapters)
+      ? subject.chapters.length
+      : Number(subject.chaptersCount ?? 0),
+    progress: Number(subject.progress ?? 0),
+  };
+}
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<DashboardSubject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       const currentUser = await mockGetCurrentUser();
+
       if (!currentUser) {
         router.push('/auth/login');
         return;
       }
+
       setUser(currentUser);
 
       const subjectsData = await getSubjects();
-      setSubjects(subjectsData);
+      const normalizedSubjects = Array.isArray(subjectsData)
+        ? subjectsData.map(normalizeSubject)
+        : [];
+
+      setSubjects(normalizedSubjects);
       setIsLoading(false);
     };
 
@@ -54,10 +88,14 @@ export default function DashboardPage() {
   }
 
   const totalProgress =
-    subjects.reduce((acc, subject) => acc + subject.progress, 0) / subjects.length;
+    subjects.length > 0
+      ? subjects.reduce((acc, subject) => acc + subject.progress, 0) / subjects.length
+      : 0;
 
   const hoursStudied = Math.floor((user?.totalTimeStudied || 0) / 60);
   const minutesStudied = (user?.totalTimeStudied || 0) % 60;
+
+  const iconsMap = LucideIcons as unknown as Record<string, IconComponentType>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -144,7 +182,7 @@ export default function DashboardPage() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {subjects.map((subject, index) => {
-              const IconComponent = (LucideIcons as any)[subject.icon] || BookOpen;
+              const IconComponent = iconsMap[subject.icon] ?? BookOpen;
               const isPremium = index > 5 && user?.subscription === 'free';
 
               return (
@@ -164,17 +202,25 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       )}
+
                       <div
                         className={`absolute inset-0 opacity-5 bg-gradient-to-br ${subject.color}`}
                       />
+
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <IconComponent className="h-8 w-8 text-primary" />
-                          <Badge variant="secondary">{subject.chaptersCount} chapitres</Badge>
+                          <Badge variant="secondary">
+                            {subject.chaptersCount} chapitres
+                          </Badge>
                         </div>
+
                         <CardTitle className="text-xl mt-4">{subject.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{subject.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {subject.description}
+                        </p>
                       </CardHeader>
+
                       <CardContent>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
@@ -206,7 +252,7 @@ export default function DashboardPage() {
                   </h3>
                   <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                     Débloquez toutes les matières, accédez à des contenus exclusifs et
-                    bénéficiez d'un suivi personnalisé
+                    bénéficiez d&apos;un suivi personnalisé
                   </p>
                   <Link href="/subscription">
                     <Button size="lg">

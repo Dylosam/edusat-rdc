@@ -29,6 +29,17 @@ export function LatexBlock({ value }: { value: string }) {
 }
 
 // ✅ compat: ancien usage <Latex latex="..." />
-export function Latex({ latex }: { latex: string }) {
-  return <LatexBlock value={latex} />;
+
+
+interface LatexProps {
+  math: string;
+  block?: boolean;
+}
+
+export function Latex({ math, block = false }: LatexProps) {
+  if (block) {
+    return <BlockMath math={math} />;
+  }
+
+  return <InlineMath math={math} />;
 }

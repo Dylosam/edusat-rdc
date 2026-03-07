@@ -1,22 +1,82 @@
-export type StatisticMetricKey =
-  | "count"
-  | "sum"
+export type StatisticsSeriesType =
+  | "univariate_frequency"
+  | "grouped_intervals"
+  | "bivariate";
+
+export type StatisticGoal =
   | "mean"
   | "median"
   | "mode"
-  | "min"
-  | "max"
-  | "range"
-  | "q1"
-  | "q3"
-  | "iqr"
   | "variance"
   | "stdDev"
+  | "quartiles"
   | "frequency"
-  | "cumulativeCount"
-  | "cumulativeFrequency";
+  | "correlation";
 
-export type StatisticMode = "raw" | "frequency";
+export type StatisticChartType =
+  | "bar"
+  | "line"
+  | "pie"
+  | "histogram"
+  | "scatter"
+  | "none";
+
+export type StatisticColumnKey =
+  | "xi"
+  | "ni"
+  | "fi"
+  | "ni_xi"
+  | "xi2"
+  | "ni_xi2"
+  | "ncc"
+  | "ncd"
+  | "borne_inf"
+  | "borne_sup"
+  | "centre"
+  | "amplitude"
+  | "ni_centre"
+  | "centre2"
+  | "ni_centre2"
+  | "x"
+  | "y"
+  | "x2"
+  | "y2"
+  | "xy";
+
+export interface StatisticColumnDefinition {
+  key: StatisticColumnKey;
+  label: string;
+  description: string;
+  editable: boolean;
+  category:
+    | "base"
+    | "frequency"
+    | "position"
+    | "dispersion"
+    | "grouped"
+    | "bivariate";
+}
+
+export interface StatisticGoalDefinition {
+  key: StatisticGoal;
+  label: string;
+  description: string;
+}
+
+export interface StatisticsSeriesDefinition {
+  key: StatisticsSeriesType;
+  label: string;
+  description: string;
+}
+
+export interface DynamicStatisticsRow {
+  id: string;
+  [key: string]: string;
+}
+
+export interface StatisticMetricKeyLegacyCompatible {
+  key: string;
+}
 
 export interface StatisticRow {
   id: string;
@@ -25,7 +85,7 @@ export interface StatisticRow {
 }
 
 export interface StatisticMetricDefinition {
-  key: StatisticMetricKey;
+  key: string;
   label: string;
   shortLabel: string;
   description: string;
@@ -33,7 +93,7 @@ export interface StatisticMetricDefinition {
 }
 
 export interface StatisticResultItem {
-  key: StatisticMetricKey;
+  key: string;
   label: string;
   value: string;
   rawValue?: number | null;

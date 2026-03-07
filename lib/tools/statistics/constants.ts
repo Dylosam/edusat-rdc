@@ -1,166 +1,291 @@
-import type { StatisticMetricDefinition, StatisticMode } from "./types";
+import type {
+  StatisticColumnDefinition,
+  StatisticGoalDefinition,
+  StatisticGoal,
+  StatisticColumnKey,
+  StatisticsSeriesDefinition,
+  StatisticsSeriesType,
+} from './types';
 
-export const STATISTIC_MODES: Array<{
-  key: StatisticMode;
-  label: string;
-  description: string;
-}> = [
+export const STATISTICS_SERIES_TYPES: StatisticsSeriesDefinition[] = [
   {
-    key: "raw",
-    label: "Liste simple",
-    description: "L'élève saisit chaque valeur une à une.",
+    key: 'univariate_frequency',
+    label: 'Série à effectifs',
+    description: 'Valeurs Xi avec effectifs ni.',
   },
   {
-    key: "frequency",
-    label: "Valeurs avec effectifs",
-    description: "L'élève saisit chaque valeur Xi avec son effectif ni.",
+    key: 'grouped_intervals',
+    label: 'Série par intervalles',
+    description: 'Classes statistiques avec bornes et effectifs.',
+  },
+  {
+    key: 'bivariate',
+    label: 'Série bivariée',
+    description: 'Deux variables X et Y pour moyenne, variance, covariance et corrélation.',
   },
 ];
 
-export const STATISTIC_METRICS: StatisticMetricDefinition[] = [
+export const STATISTIC_GOALS: StatisticGoalDefinition[] = [
   {
-    key: "count",
-    label: "Effectif total",
-    shortLabel: "N",
-    description: "Nombre total de données.",
-    category: "basic",
+    key: 'mean',
+    label: 'Moyenne',
+    description: 'Calcule la moyenne de la série.',
   },
   {
-    key: "sum",
-    label: "Somme",
-    shortLabel: "Σx",
-    description: "Somme de toutes les valeurs.",
-    category: "basic",
+    key: 'median',
+    label: 'Médiane',
+    description: 'Repère la valeur centrale de la série.',
   },
   {
-    key: "mean",
-    label: "Moyenne",
-    shortLabel: "x̄",
-    description: "Moyenne arithmétique de la série.",
-    category: "position",
+    key: 'mode',
+    label: 'Mode',
+    description: 'Détermine la valeur la plus fréquente.',
   },
   {
-    key: "median",
-    label: "Médiane",
-    shortLabel: "Med",
-    description: "Valeur qui partage la série ordonnée en deux parties égales.",
-    category: "position",
+    key: 'variance',
+    label: 'Variance',
+    description: 'Mesure la dispersion autour de la moyenne.',
   },
   {
-    key: "mode",
-    label: "Mode",
-    shortLabel: "Mo",
-    description: "Valeur la plus fréquente.",
-    category: "position",
+    key: 'stdDev',
+    label: 'Écart-type',
+    description: 'Racine carrée de la variance.',
   },
   {
-    key: "min",
-    label: "Minimum",
-    shortLabel: "Min",
-    description: "Plus petite valeur de la série.",
-    category: "basic",
+    key: 'quartiles',
+    label: 'Quartiles',
+    description: 'Détermine Q1, Q2, Q3.',
   },
   {
-    key: "max",
-    label: "Maximum",
-    shortLabel: "Max",
-    description: "Plus grande valeur de la série.",
-    category: "basic",
+    key: 'frequency',
+    label: 'Fréquences',
+    description: 'Affiche fréquences et cumuls.',
   },
   {
-    key: "range",
-    label: "Étendue",
-    shortLabel: "E",
-    description: "Différence entre la plus grande et la plus petite valeur.",
-    category: "dispersion",
-  },
-  {
-    key: "q1",
-    label: "Premier quartile",
-    shortLabel: "Q1",
-    description: "Valeur en dessous de laquelle se trouvent 25% des données.",
-    category: "position",
-  },
-  {
-    key: "q3",
-    label: "Troisième quartile",
-    shortLabel: "Q3",
-    description: "Valeur en dessous de laquelle se trouvent 75% des données.",
-    category: "position",
-  },
-  {
-    key: "iqr",
-    label: "Écart interquartile",
-    shortLabel: "IQR",
-    description: "Différence entre Q3 et Q1.",
-    category: "dispersion",
-  },
-  {
-    key: "variance",
-    label: "Variance",
-    shortLabel: "Var",
-    description: "Mesure de dispersion autour de la moyenne.",
-    category: "dispersion",
-  },
-  {
-    key: "stdDev",
-    label: "Écart-type",
-    shortLabel: "σ",
-    description: "Racine carrée de la variance.",
-    category: "dispersion",
-  },
-  {
-    key: "frequency",
-    label: "Fréquences",
-    shortLabel: "fi",
-    description: "Proportion de chaque valeur dans la série.",
-    category: "frequency",
-  },
-  {
-    key: "cumulativeCount",
-    label: "Effectifs cumulés",
-    shortLabel: "Ni",
-    description: "Somme progressive des effectifs.",
-    category: "frequency",
-  },
-  {
-    key: "cumulativeFrequency",
-    label: "Fréquences cumulées",
-    shortLabel: "Fi",
-    description: "Somme progressive des fréquences.",
-    category: "frequency",
+    key: 'correlation',
+    label: 'Corrélation',
+    description: 'Mesure la liaison entre X et Y.',
   },
 ];
 
-export const DEFAULT_STATISTIC_METRICS = [
-  "count",
-  "mean",
-  "median",
-  "mode",
-  "q1",
-  "q3",
-  "iqr",
-] as const;
+export const STATISTIC_COLUMNS: Record<
+  StatisticColumnKey,
+  StatisticColumnDefinition
+> = {
+  xi: {
+    key: 'xi',
+    label: 'Xi',
+    description: 'Valeur statistique.',
+    editable: true,
+    category: 'base',
+  },
+  ni: {
+    key: 'ni',
+    label: 'ni',
+    description: 'Effectif associé à la valeur ou à la classe.',
+    editable: true,
+    category: 'base',
+  },
+  fi: {
+    key: 'fi',
+    label: 'fi',
+    description: 'Fréquence de la valeur.',
+    editable: false,
+    category: 'frequency',
+  },
+  ni_xi: {
+    key: 'ni_xi',
+    label: 'ni·Xi',
+    description: 'Produit utile pour calculer la moyenne.',
+    editable: false,
+    category: 'position',
+  },
+  xi2: {
+    key: 'xi2',
+    label: 'Xi²',
+    description: 'Carré de Xi, utile pour la variance.',
+    editable: false,
+    category: 'dispersion',
+  },
+  ni_xi2: {
+    key: 'ni_xi2',
+    label: 'ni·Xi²',
+    description: 'Produit utile pour la variance.',
+    editable: false,
+    category: 'dispersion',
+  },
+  ncc: {
+    key: 'ncc',
+    label: 'NCC',
+    description: 'Nombre cumulé croissant.',
+    editable: false,
+    category: 'frequency',
+  },
+  ncd: {
+    key: 'ncd',
+    label: 'NCD',
+    description: 'Nombre cumulé décroissant.',
+    editable: false,
+    category: 'frequency',
+  },
+  borne_inf: {
+    key: 'borne_inf',
+    label: 'Borne inf.',
+    description: 'Borne inférieure de la classe.',
+    editable: true,
+    category: 'grouped',
+  },
+  borne_sup: {
+    key: 'borne_sup',
+    label: 'Borne sup.',
+    description: 'Borne supérieure de la classe.',
+    editable: true,
+    category: 'grouped',
+  },
+  centre: {
+    key: 'centre',
+    label: 'Centre',
+    description: 'Centre de classe.',
+    editable: false,
+    category: 'grouped',
+  },
+  amplitude: {
+    key: 'amplitude',
+    label: 'Amplitude',
+    description: 'Amplitude de la classe.',
+    editable: false,
+    category: 'grouped',
+  },
+  ni_centre: {
+    key: 'ni_centre',
+    label: 'ni·cᵢ',
+    description: 'Produit effectif × centre de classe.',
+    editable: false,
+    category: 'grouped',
+  },
+  centre2: {
+    key: 'centre2',
+    label: 'cᵢ²',
+    description: 'Carré du centre de classe.',
+    editable: false,
+    category: 'grouped',
+  },
+  ni_centre2: {
+    key: 'ni_centre2',
+    label: 'ni·cᵢ²',
+    description: 'Produit utile pour la variance par classes.',
+    editable: false,
+    category: 'grouped',
+  },
+  x: {
+    key: 'x',
+    label: 'X',
+    description: 'Première variable.',
+    editable: true,
+    category: 'bivariate',
+  },
+  y: {
+    key: 'y',
+    label: 'Y',
+    description: 'Deuxième variable.',
+    editable: true,
+    category: 'bivariate',
+  },
+  x2: {
+    key: 'x2',
+    label: 'X²',
+    description: 'Carré de X.',
+    editable: false,
+    category: 'bivariate',
+  },
+  y2: {
+    key: 'y2',
+    label: 'Y²',
+    description: 'Carré de Y.',
+    editable: false,
+    category: 'bivariate',
+  },
+  xy: {
+    key: 'xy',
+    label: 'XY',
+    description: 'Produit X×Y, utile pour la corrélation.',
+    editable: false,
+    category: 'bivariate',
+  },
+};
 
-export const STATISTIC_PRESET_GROUPS = [
-  {
-    key: "basic",
-    label: "Base",
-    metrics: ["count", "sum", "min", "max", "range"],
-  },
-  {
-    key: "position",
-    label: "Position",
-    metrics: ["mean", "median", "mode", "q1", "q3"],
-  },
-  {
-    key: "dispersion",
-    label: "Dispersion",
-    metrics: ["range", "variance", "stdDev", "iqr"],
-  },
-  {
-    key: "frequency",
-    label: "Fréquences",
-    metrics: ["frequency", "cumulativeCount", "cumulativeFrequency"],
-  },
-];
+export const BASE_COLUMNS_BY_SERIES: Record<
+  StatisticsSeriesType,
+  StatisticColumnKey[]
+> = {
+  univariate_frequency: ['xi', 'ni'],
+  grouped_intervals: ['borne_inf', 'borne_sup', 'ni'],
+  bivariate: ['x', 'y'],
+};
+
+export const REQUIRED_COLUMNS_BY_GOAL: Record<
+  StatisticGoal,
+  StatisticColumnKey[]
+> = {
+  mean: ['ni_xi'],
+  median: ['ncc'],
+  mode: [],
+  variance: ['ni_xi', 'xi2', 'ni_xi2'],
+  stdDev: ['ni_xi', 'xi2', 'ni_xi2'],
+  quartiles: ['ncc'],
+  frequency: ['fi', 'ncc', 'ncd'],
+  correlation: ['x2', 'y2', 'xy'],
+};
+
+export const GROUPED_SERIES_REQUIRED_COLUMNS_BY_GOAL: Partial<
+  Record<StatisticGoal, StatisticColumnKey[]>
+> = {
+  mean: ['centre', 'ni_centre'],
+  variance: ['centre', 'ni_centre', 'centre2', 'ni_centre2'],
+  stdDev: ['centre', 'ni_centre', 'centre2', 'ni_centre2'],
+  median: ['amplitude', 'ncc'],
+  quartiles: ['amplitude', 'ncc'],
+  frequency: ['centre', 'fi', 'ncc', 'ncd'],
+};
+
+export const BIVARIATE_REQUIRED_COLUMNS_BY_GOAL: Partial<
+  Record<StatisticGoal, StatisticColumnKey[]>
+> = {
+  mean: [],
+  variance: ['x2', 'y2'],
+  stdDev: ['x2', 'y2'],
+  correlation: ['x2', 'y2', 'xy'],
+};
+
+export const AVAILABLE_GOALS_BY_SERIES: Record<
+  StatisticsSeriesType,
+  StatisticGoal[]
+> = {
+  univariate_frequency: [
+    'mean',
+    'median',
+    'mode',
+    'variance',
+    'stdDev',
+    'quartiles',
+    'frequency',
+  ],
+  grouped_intervals: [
+    'mean',
+    'median',
+    'variance',
+    'stdDev',
+    'quartiles',
+    'frequency',
+  ],
+  bivariate: ['mean', 'variance', 'stdDev', 'correlation'],
+};
+
+export const DEFAULT_GOALS_BY_SERIES: Record<
+  StatisticsSeriesType,
+  StatisticGoal[]
+> = {
+  univariate_frequency: ['mean', 'frequency'],
+  grouped_intervals: ['mean', 'frequency'],
+  bivariate: ['mean', 'correlation'],
+};
