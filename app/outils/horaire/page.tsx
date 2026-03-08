@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -63,7 +62,6 @@ export default function TimetablePage() {
   const [state, setState] = useState<TimetableStateV1>(() => defaultTimetableState());
   const [isLoading, setIsLoading] = useState(true);
 
-  // édition cellule
   const [openCell, setOpenCell] = useState(false);
   const [cellDay, setCellDay] = useState<WeekdayKey>("mon");
   const [cellPeriodId, setCellPeriodId] = useState<string>("p1");
@@ -75,11 +73,9 @@ export default function TimetablePage() {
     color: COLOR_PRESETS[0],
   });
 
-  // import/export json
   const [openJson, setOpenJson] = useState(false);
   const [jsonDraft, setJsonDraft] = useState("");
 
-  // édition créneau (option Apple Calendar)
   const [openPeriodEditor, setOpenPeriodEditor] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<TimetablePeriod | null>(null);
 
@@ -247,8 +243,8 @@ export default function TimetablePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary sm:h-12 sm:w-12" />
       </div>
     );
   }
@@ -257,35 +253,39 @@ export default function TimetablePage() {
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.45 }}
         >
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold mb-2 font-serif">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col gap-4 sm:gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <h1 className="mb-2 text-3xl font-bold font-serif leading-tight sm:text-4xl">
                   Horaire de cours
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-sm leading-6 text-muted-foreground sm:text-base">
                   100% personnalisable · Sauvegarde automatique · Dernière maj :{" "}
                   <span className="font-medium">{lastUpdate}</span>
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" onClick={onImport}>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                <Button variant="outline" size="sm" onClick={onImport} className="w-full sm:w-auto">
                   <Upload className="mr-2 h-4 w-4" />
                   Import
                 </Button>
-                <Button variant="outline" size="sm" onClick={onExport}>
+                <Button variant="outline" size="sm" onClick={onExport} className="w-full sm:w-auto">
                   <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
-                <Button variant="outline" size="sm" onClick={doReset}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={doReset}
+                  className="col-span-2 w-full sm:col-span-1 sm:w-auto"
+                >
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Reset
                 </Button>
@@ -293,15 +293,14 @@ export default function TimetablePage() {
             </div>
           </div>
 
-          {/* Haut de page */}
-          <div className="grid gap-6 lg:grid-cols-3 mb-12">
-            <Card className="lg:col-span-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg">Infos</CardTitle>
+          <div className="mb-8 grid gap-4 sm:gap-5 lg:mb-12 lg:grid-cols-3 lg:gap-6">
+            <Card className="lg:col-span-2 rounded-2xl">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg">Infos</CardTitle>
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
 
-              <CardContent className="grid gap-4 sm:grid-cols-3">
+              <CardContent className="grid gap-3 p-4 pt-0 sm:grid-cols-3 sm:gap-4 sm:p-6 sm:pt-0">
                 <div className="space-y-2">
                   <div className="text-sm text-muted-foreground">Titre</div>
                   <Input
@@ -331,19 +330,20 @@ export default function TimetablePage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg">Jours affichés</CardTitle>
+            <Card className="rounded-2xl">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg">Jours affichés</CardTitle>
                 <Badge variant="secondary">{visibleDays.length} jours</Badge>
               </CardHeader>
 
-              <CardContent className="flex flex-wrap gap-2">
+              <CardContent className="flex flex-wrap gap-2 p-4 pt-0 sm:p-6 sm:pt-0">
                 {enabledDays.map((d) => (
                   <Button
                     key={d.key}
                     size="sm"
                     variant={d.enabled ? "default" : "outline"}
                     onClick={() => toggleDay(d.key)}
+                    className="h-9"
                   >
                     {d.label}
                   </Button>
@@ -352,33 +352,33 @@ export default function TimetablePage() {
             </Card>
           </div>
 
-          {/* Créneaux */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold font-serif">Créneaux</h2>
-            <Button onClick={addPeriod}>
+            <Button onClick={addPeriod} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Ajouter un créneau
             </Button>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-12">
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:mb-12 lg:grid-cols-3 lg:gap-6">
             {state.periods.map((p) => (
-              <Card key={p.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <CardTitle className="text-lg">{p.label}</CardTitle>
-                      <div className="mt-2 text-muted-foreground">
+              <Card key={p.id} className="rounded-2xl">
+                <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <CardTitle className="text-base sm:text-lg">{p.label}</CardTitle>
+                      <div className="mt-1 text-sm text-muted-foreground">
                         {p.start} → {p.end}
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex shrink-0 gap-2">
                       <Button
                         variant="outline"
                         size="icon"
                         title="Modifier"
                         onClick={() => openPeriodEdit(p)}
+                        className="h-9 w-9"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -388,6 +388,7 @@ export default function TimetablePage() {
                         size="icon"
                         title="Supprimer"
                         onClick={() => deletePeriod(p.id)}
+                        className="h-9 w-9"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -395,7 +396,7 @@ export default function TimetablePage() {
                   </div>
                 </CardHeader>
 
-                <CardContent className="grid grid-cols-3 gap-2">
+                <CardContent className="grid grid-cols-1 gap-2 p-4 pt-0 sm:grid-cols-3 sm:p-6 sm:pt-0">
                   <Input
                     value={p.label}
                     onChange={(e) => updatePeriod(p.id, { label: e.target.value })}
@@ -416,27 +417,26 @@ export default function TimetablePage() {
             ))}
           </div>
 
-          {/* Grille */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold font-serif">Grille</h2>
-            <div className="text-sm text-muted-foreground">
-              Clique une case pour éditer.
-            </div>
+            <div className="text-sm text-muted-foreground">Clique une case pour éditer.</div>
           </div>
 
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden rounded-2xl">
             <CardContent className="p-0">
-              <div className="w-full overflow-auto">
-                <div className="min-w-[900px]">
+              <div className="w-full overflow-x-auto">
+                <div className="min-w-[760px] sm:min-w-[900px]">
                   <div
                     className="grid border-b"
                     style={{
-                      gridTemplateColumns: `220px repeat(${visibleDays.length}, 1fr)`,
+                      gridTemplateColumns: `180px repeat(${visibleDays.length}, 1fr)`,
                     }}
                   >
-                    <div className="px-5 py-4 text-sm font-medium">Créneaux</div>
+                    <div className="px-3 py-3 text-sm font-medium sm:px-5 sm:py-4">
+                      Créneaux
+                    </div>
                     {visibleDays.map((d) => (
-                      <div key={d.key} className="px-5 py-4 text-sm font-medium">
+                      <div key={d.key} className="px-3 py-3 text-sm font-medium sm:px-5 sm:py-4">
                         {d.label}
                       </div>
                     ))}
@@ -447,12 +447,12 @@ export default function TimetablePage() {
                       key={p.id}
                       className="grid border-b last:border-b-0"
                       style={{
-                        gridTemplateColumns: `220px repeat(${visibleDays.length}, 1fr)`,
+                        gridTemplateColumns: `180px repeat(${visibleDays.length}, 1fr)`,
                       }}
                     >
-                      <div className="px-5 py-5">
+                      <div className="px-3 py-4 sm:px-5 sm:py-5">
                         <div className="font-semibold">{p.label}</div>
-                        <div className="text-sm text-muted-foreground mt-1">
+                        <div className="mt-1 text-sm text-muted-foreground">
                           {p.start} → {p.end}
                         </div>
                       </div>
@@ -466,49 +466,49 @@ export default function TimetablePage() {
                             key={`${d.key}_${p.id}`}
                             onClick={() => openCellEditor(d.key, p.id)}
                             className={[
-                              "px-5 py-5 text-left transition border-l hover:bg-muted/30",
+                              "border-l px-3 py-4 text-left transition hover:bg-muted/30 sm:px-5 sm:py-5",
                               has ? "relative overflow-hidden" : "",
                             ].join(" ")}
                           >
                             {has ? (
-  <>
-    <div
-      className={[
-        "absolute inset-0 opacity-10 bg-gradient-to-br",
-        entry?.color ?? COLOR_PRESETS[0],
-      ].join(" ")}
-    />
+                              <>
+                                <div
+                                  className={[
+                                    "absolute inset-0 bg-gradient-to-br opacity-10",
+                                    entry?.color ?? COLOR_PRESETS[0],
+                                  ].join(" ")}
+                                />
 
-    {!(entry?.room || entry?.teacher || entry?.note) ? (
-      <div className="relative flex items-center justify-center h-full">
-        <div className="font-semibold text-base">
-          {entry?.subject}
-        </div>
-      </div>
-    ) : (
-      <div className="relative">
-        <div className="font-semibold line-clamp-1">
-          {entry?.subject}
-        </div>
+                                {!(entry?.room || entry?.teacher || entry?.note) ? (
+                                  <div className="relative flex h-full items-center justify-center">
+                                    <div className="text-sm font-semibold sm:text-base">
+                                      {entry?.subject}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="relative min-w-0">
+                                    <div className="line-clamp-1 text-sm font-semibold sm:text-base">
+                                      {entry?.subject}
+                                    </div>
 
-        {entry?.room || entry?.teacher ? (
-          <div className="mt-1 text-sm text-muted-foreground line-clamp-1">
-            {(entry?.room ? `Salle ${entry.room}` : "") +
-              (entry?.teacher ? ` • ${entry.teacher}` : "")}
-          </div>
-        ) : null}
+                                    {entry?.room || entry?.teacher ? (
+                                      <div className="mt-1 line-clamp-1 text-xs text-muted-foreground sm:text-sm">
+                                        {(entry?.room ? `Salle ${entry.room}` : "") +
+                                          (entry?.teacher ? ` • ${entry.teacher}` : "")}
+                                      </div>
+                                    ) : null}
 
-        {entry?.note ? (
-          <div className="mt-1 text-xs text-muted-foreground line-clamp-2">
-            {entry.note}
-          </div>
-        ) : null}
-      </div>
-    )}
-  </>
-) : (
-  <div className="text-muted-foreground">—</div>
-)}
+                                    {entry?.note ? (
+                                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                        {entry.note}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-muted-foreground">—</div>
+                            )}
                           </button>
                         );
                       })}
@@ -519,14 +519,13 @@ export default function TimetablePage() {
             </CardContent>
           </Card>
 
-          {/* Modal édition cellule */}
           <Dialog open={openCell} onOpenChange={setOpenCell}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Éditer un cours</DialogTitle>
               </DialogHeader>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">{cellDay}</Badge>
                   <Badge variant="outline">{cellPeriodId}</Badge>
@@ -541,7 +540,7 @@ export default function TimetablePage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-2">
                   <div className="space-y-2">
                     <div className="text-sm text-muted-foreground">Salle</div>
                     <Input
@@ -571,7 +570,7 @@ export default function TimetablePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground inline-flex items-center gap-2">
+                  <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                     <Palette className="h-4 w-4" />
                     Couleur
                   </div>
@@ -581,7 +580,7 @@ export default function TimetablePage() {
                         key={c}
                         onClick={() => setDraft((d) => ({ ...d, color: c }))}
                         className={[
-                          "h-10 w-16 rounded-xl border relative overflow-hidden",
+                          "relative h-10 w-14 overflow-hidden rounded-xl border sm:w-16",
                           draft.color === c ? "ring-2 ring-primary" : "hover:border-primary/50",
                         ].join(" ")}
                         title={c}
@@ -594,17 +593,21 @@ export default function TimetablePage() {
                 </div>
               </div>
 
-              <DialogFooter className="flex flex-row gap-2 justify-between sm:justify-between">
-                <Button variant="outline" onClick={clearCell}>
+              <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <Button variant="outline" onClick={clearCell} className="w-full sm:w-auto">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Supprimer
                 </Button>
 
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setOpenCell(false)}>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    variant="outline"
+                    onClick={() => setOpenCell(false)}
+                    className="w-full sm:w-auto"
+                  >
                     Annuler
                   </Button>
-                  <Button onClick={saveCell}>
+                  <Button onClick={saveCell} className="w-full sm:w-auto">
                     <Save className="mr-2 h-4 w-4" />
                     Enregistrer
                   </Button>
@@ -613,9 +616,8 @@ export default function TimetablePage() {
             </DialogContent>
           </Dialog>
 
-          {/* Modal édition créneau - style Apple Calendar */}
           <Dialog open={openPeriodEditor} onOpenChange={setOpenPeriodEditor}>
-            <DialogContent className="sm:max-w-md rounded-3xl border border-border/70 bg-background/95 backdrop-blur-xl shadow-2xl">
+            <DialogContent className="w-[calc(100vw-2rem)] rounded-3xl border border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="text-xl font-semibold">Modifier le créneau</DialogTitle>
               </DialogHeader>
@@ -627,24 +629,20 @@ export default function TimetablePage() {
                     <Input
                       value={editingPeriod.label}
                       onChange={(e) =>
-                        setEditingPeriod((p) =>
-                          p ? { ...p, label: e.target.value } : p
-                        )
+                        setEditingPeriod((p) => (p ? { ...p, label: e.target.value } : p))
                       }
                       className="h-11 rounded-2xl"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
                       <div className="text-sm text-muted-foreground">Début</div>
                       <Input
                         type="time"
                         value={editingPeriod.start}
                         onChange={(e) =>
-                          setEditingPeriod((p) =>
-                            p ? { ...p, start: e.target.value } : p
-                          )
+                          setEditingPeriod((p) => (p ? { ...p, start: e.target.value } : p))
                         }
                         className="h-11 rounded-2xl"
                       />
@@ -656,9 +654,7 @@ export default function TimetablePage() {
                         type="time"
                         value={editingPeriod.end}
                         onChange={(e) =>
-                          setEditingPeriod((p) =>
-                            p ? { ...p, end: e.target.value } : p
-                          )
+                          setEditingPeriod((p) => (p ? { ...p, end: e.target.value } : p))
                         }
                         className="h-11 rounded-2xl"
                       />
@@ -666,22 +662,26 @@ export default function TimetablePage() {
                   </div>
 
                   <div className="rounded-2xl border bg-muted/30 p-4">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                    <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
                       Aperçu
                     </div>
                     <div className="text-lg font-semibold">{editingPeriod.label}</div>
-                    <div className="text-sm text-muted-foreground mt-1">
+                    <div className="mt-1 text-sm text-muted-foreground">
                       {editingPeriod.start} → {editingPeriod.end}
                     </div>
                   </div>
                 </div>
               )}
 
-              <DialogFooter className="flex gap-2 sm:justify-end">
-                <Button variant="outline" onClick={() => setOpenPeriodEditor(false)} className="rounded-2xl">
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setOpenPeriodEditor(false)}
+                  className="w-full rounded-2xl sm:w-auto"
+                >
                   Annuler
                 </Button>
-                <Button onClick={savePeriodEdit} className="rounded-2xl">
+                <Button onClick={savePeriodEdit} className="w-full rounded-2xl sm:w-auto">
                   <Save className="mr-2 h-4 w-4" />
                   Enregistrer
                 </Button>
@@ -689,9 +689,8 @@ export default function TimetablePage() {
             </DialogContent>
           </Dialog>
 
-          {/* Import / Export JSON */}
           <Dialog open={openJson} onOpenChange={setOpenJson}>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="w-[calc(100vw-2rem)] rounded-2xl sm:max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Import / Export (JSON)</DialogTitle>
               </DialogHeader>
@@ -703,23 +702,26 @@ export default function TimetablePage() {
                 <Textarea
                   value={jsonDraft}
                   onChange={(e) => setJsonDraft(e.target.value)}
-                  className="min-h-[320px] font-mono text-xs"
+                  className="min-h-[260px] font-mono text-xs sm:min-h-[320px]"
                 />
               </div>
 
-              <DialogFooter className="flex flex-row gap-2 justify-end">
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button
                   variant="outline"
                   onClick={() => {
                     setJsonDraft(exportTimetableJson());
                   }}
+                  className="w-full sm:w-auto"
                 >
                   Recharger l’export
                 </Button>
-                <Button variant="outline" onClick={() => setOpenJson(false)}>
+                <Button variant="outline" onClick={() => setOpenJson(false)} className="w-full sm:w-auto">
                   Fermer
                 </Button>
-                <Button onClick={doImport}>Importer</Button>
+                <Button onClick={doImport} className="w-full sm:w-auto">
+                  Importer
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

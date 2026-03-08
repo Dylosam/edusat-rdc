@@ -1,13 +1,10 @@
-// lib/mock-api/data.ts
-// ✅ “Back to normal” data gateway (subjects + chapters + lessons + quiz + dashboard)
-
 import * as SubjectsModule from "@/lib/mock-data/subjects";
 import * as ChaptersModule from "@/lib/mock-data/chapters";
 import * as LessonsModule from "@/lib/data/lessons";
 import * as QuizzesModule from "@/lib/mock-api/quizzes";
 
 import { readProgressStore } from "@/lib/progress/index";
-import { isQuizPassed, scorePercent } from "@/lib/progress/quiz";
+import { isQuizPassed } from "@/lib/progress/quiz";
 
 type AnyObj = Record<string, any>;
 
@@ -29,6 +26,7 @@ export type Chapter = {
   description?: string;
   estimatedMinutes?: number;
   order?: number;
+  quizId?: string;
 };
 
 export type Lesson = {
@@ -39,6 +37,8 @@ export type Lesson = {
   content?: string;
   katex?: string;
   order?: number;
+  summary?: string;
+  videoUrl?: string;
 };
 
 export type Quiz = {
@@ -48,8 +48,6 @@ export type Quiz = {
   passMarkPercent?: number;
   questions?: any[];
 };
-
-// -------------------- helpers --------------------
 
 function toStr(x: any): string {
   return String(x ?? "").trim();
@@ -63,68 +61,74 @@ function slugify(s: string): string {
 }
 
 function pickFirstArray(moduleObj: AnyObj): any[] {
-  // 1) direct array exports
-  for (const v of Object.values(moduleObj)) {
-    if (Array.isArray(v)) return v;
+  for (const value of Object.values(moduleObj)) {
+    if (Array.isArray(value)) return value;
   }
-  // 2) object exports containing an array
-  for (const v of Object.values(moduleObj)) {
-    if (v && typeof v === "object") {
-      for (const vv of Object.values(v)) {
-        if (Array.isArray(vv)) return vv;
+
+  for (const value of Object.values(moduleObj)) {
+    if (value && typeof value === "object") {
+      for (const nested of Object.values(value)) {
+        if (Array.isArray(nested)) return nested;
       }
     }
   }
+
   return [];
 }
 
 function normalizeSubjects(raw: any[]): Subject[] {
   const arr = Array.isArray(raw) ? raw : [];
 
-  return arr.map((x: AnyObj, idx: number) => {
-    const id = toStr(x.id || x.slug || idx);
-    const slug = slugify(x.slug || x.id || x.title || x.name || id);
-    const title = toStr(x.title || x.name || `Matière ${idx + 1}`);
+  return arr.map((item: AnyObj, idx: number) => {
+    const id = toStr(item.id || item.slug || idx);
+    const slug = slugify(item.slug || item.id || item.title || item.name || id);
+    const title = toStr(item.title || item.name || `Matière ${idx + 1}`);
 
-    return { id, slug, title, ...x };
+    return {
+      ...item,
+      id,
+      slug,
+      title,
+    };
   });
 }
 
 function normalizeChapters(raw: any[], subject?: Subject | null): Chapter[] {
   const arr = Array.isArray(raw) ? raw : [];
 
-  const out = arr.map((x: AnyObj, idx: number) => ({
-    id: toStr(x.id || x.chapterId || idx),
-    subjectId: x.subjectId ? toStr(x.subjectId) : subject?.id,
-    subjectSlug: x.subjectSlug ? toStr(x.subjectSlug) : subject?.slug,
-    title: toStr(x.title || x.name || `Chapitre ${idx + 1}`),
-    description: x.description,
-    estimatedMinutes: x.estimatedMinutes ?? x.minutes,
-    order: x.order ?? idx + 1,
-    ...x,
+  const normalized = arr.map((item: AnyObj, idx: number) => ({
+    ...item,
+    id: toStr(item.id || item.chapterId || idx),
+    subjectId: item.subjectId ? toStr(item.subjectId) : subject?.id,
+    subjectSlug: item.subjectSlug ? toStr(item.subjectSlug) : subject?.slug,
+    title: toStr(item.title || item.name || `Chapitre ${idx + 1}`),
+    description: item.description,
+    estimatedMinutes: item.estimatedMinutes ?? item.minutes,
+    order: item.order ?? idx + 1,
+    quizId: item.quizId,
   }));
 
-  return out.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+  return normalized.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
 }
 
 function normalizeLessons(raw: any[], chapterId: string): Lesson[] {
   const arr = Array.isArray(raw) ? raw : [];
 
-  const out = arr.map((x: AnyObj, idx: number) => ({
-    id: toStr(x.id || x.lessonId || idx),
-    chapterId: toStr(x.chapterId || chapterId),
-    title: toStr(x.title || x.name || `Leçon ${idx + 1}`),
-    minutes: x.minutes ?? x.estimatedMinutes,
-    content: x.content,
-    katex: x.katex,
-    order: x.order ?? idx + 1,
-    ...x,
+  const normalized = arr.map((item: AnyObj, idx: number) => ({
+    ...item,
+    id: toStr(item.id || item.lessonId || idx),
+    chapterId: toStr(item.chapterId || chapterId),
+    title: toStr(item.title || item.name || `Leçon ${idx + 1}`),
+    minutes: item.minutes ?? item.estimatedMinutes,
+    content: item.content,
+    katex: item.katex,
+    order: item.order ?? idx + 1,
+    summary: item.summary,
+    videoUrl: item.videoUrl,
   }));
 
-  return out.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+  return normalized.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
 }
-
-// -------------------- SUBJECTS --------------------
 
 export async function getSubjects(): Promise<Subject[]> {
   const raw = pickFirstArray(SubjectsModule as AnyObj);
@@ -136,75 +140,77 @@ export async function getSubjectBySlug(slug: string): Promise<Subject | null> {
   const key = slugify(slug);
 
   return (
-    subjects.find((s) => slugify(s.slug) === key) ??
-    subjects.find((s) => slugify(s.id) === key) ??
+    subjects.find((subject) => slugify(subject.slug) === key) ??
+    subjects.find((subject) => slugify(subject.id) === key) ??
     null
   );
 }
 
-// -------------------- CHAPTERS --------------------
-
-/**
- * ✅ attendu par app/subjects/[slug]/page.tsx
- */
 export async function getChaptersBySubject(subjectIdOrSlug: string): Promise<Chapter[]> {
   const key = slugify(subjectIdOrSlug);
 
   const subjects = await getSubjects();
   const subject =
-    subjects.find((s) => slugify(s.slug) === key || slugify(s.id) === key) ?? null;
+    subjects.find(
+      (item) => slugify(item.slug) === key || slugify(item.id) === key
+    ) ?? null;
 
-  // Chapters source = lib/mock-data/chapters.ts
   const chaptersRaw = pickFirstArray(ChaptersModule as AnyObj) as AnyObj[];
   const list = Array.isArray(chaptersRaw) ? chaptersRaw : [];
 
-  // Filtrage robuste:
-  // - subjectSlug == slug
-  // - subjectId == id
-  const filtered = list.filter((c) => {
-    const sid = slugify(c?.subjectId);
-    const sslug = slugify(c?.subjectSlug);
+  const filtered = list.filter((chapter) => {
+    const subjectId = slugify(chapter?.subjectId);
+    const subjectSlug = slugify(chapter?.subjectSlug);
 
     if (subject) {
-      return sid === slugify(subject.id) || sslug === slugify(subject.slug);
+      return (
+        subjectId === slugify(subject.id) ||
+        subjectSlug === slugify(subject.slug)
+      );
     }
-    // fallback si on n’a pas trouvé le subject
-    return sid === key || sslug === key;
+
+    return subjectId === key || subjectSlug === key;
   });
 
   return normalizeChapters(filtered, subject);
 }
 
 export async function getChapterById(chapterId: string): Promise<Chapter | null> {
-  const id = slugify(chapterId);
+  const target = slugify(chapterId);
   const chaptersRaw = pickFirstArray(ChaptersModule as AnyObj) as AnyObj[];
   const list = Array.isArray(chaptersRaw) ? chaptersRaw : [];
 
   const found =
-    list.find((c) => slugify(c?.id) === id || slugify(c?.chapterId) === id) ?? null;
+    list.find(
+      (chapter) =>
+        slugify(chapter?.id) === target || slugify(chapter?.chapterId) === target
+    ) ?? null;
 
-  if (!found) return null;
+  if (!found) {
+    return null;
+  }
 
-  // complète subject info si possible
-  const subjectSlug = toStr(found?.subjectSlug);
-  const subject = subjectSlug ? await getSubjectBySlug(subjectSlug) : null;
+  const allSubjects = await getSubjects();
+
+  const subject =
+    allSubjects.find(
+      (item) =>
+        slugify(item.id) === slugify(found?.subjectId) ||
+        slugify(item.slug) === slugify(found?.subjectSlug)
+    ) ?? null;
 
   return normalizeChapters([found], subject)[0] ?? null;
 }
 
-// -------------------- LESSONS --------------------
-
 export async function getLessonsByChapterId(chapterId: string): Promise<Lesson[]> {
   const id = toStr(chapterId);
 
-  // 1) si le module expose une fonction
   const fn = (LessonsModule as AnyObj).getLessonsByChapterId;
   if (typeof fn === "function") {
     const raw = await fn(id);
     return normalizeLessons(raw, id);
   }
 
-  // 2) si le module expose une map
   const map =
     (LessonsModule as AnyObj).lessonsByChapter ??
     (LessonsModule as AnyObj).LESSONS_BY_CHAPTER ??
@@ -226,12 +232,20 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
     null;
 
   if (map && typeof map === "object") {
-    for (const arr of Object.values(map)) {
-      if (Array.isArray(arr)) {
-        const found = (arr as AnyObj[]).find(
-          (l) => slugify(l?.id) === target || slugify(l?.lessonId) === target
+    for (const lessons of Object.values(map)) {
+      if (Array.isArray(lessons)) {
+        const found = (lessons as AnyObj[]).find(
+          (lesson) =>
+            slugify(lesson?.id) === target ||
+            slugify(lesson?.lessonId) === target
         );
-        if (found) return normalizeLessons([found], toStr(found.chapterId || ""))[0] ?? null;
+
+        if (found) {
+          return normalizeLessons(
+            [found],
+            toStr(found.chapterId || "")
+          )[0] ?? null;
+        }
       }
     }
   }
@@ -246,8 +260,6 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
   return null;
 }
 
-// -------------------- QUIZZES --------------------
-
 export async function getQuizById(quizId: string): Promise<Quiz | null> {
   const target = slugify(quizId);
 
@@ -257,12 +269,10 @@ export async function getQuizById(quizId: string): Promise<Quiz | null> {
   }
 
   const arr = pickFirstArray(QuizzesModule as AnyObj) as AnyObj[];
-  const found = (arr || []).find((q) => slugify(q?.id) === target) ?? null;
+  const found = (arr || []).find((quiz) => slugify(quiz?.id) === target) ?? null;
 
   return found ? (found as Quiz) : null;
 }
-
-// -------------------- DASHBOARD / STATS --------------------
 
 export async function getDashboardSnapshot() {
   const subjects = await getSubjects();
@@ -276,24 +286,29 @@ export async function getDashboardSnapshot() {
   const totalChapters = chapterIds.length;
 
   const doneChapters = chapterIds.filter((id) => {
-    const s = chaptersStatus[id];
-    return Boolean(s?.completed || s?.isCompleted || s === "done" || s === true);
+    const state = chaptersStatus[id];
+    return Boolean(
+      state?.completed || state?.isCompleted || state === "done" || state === true
+    );
   }).length;
 
-  const progressPercent = totalChapters > 0 ? Math.round((doneChapters / totalChapters) * 100) : 0;
+  const progressPercent =
+    totalChapters > 0 ? Math.round((doneChapters / totalChapters) * 100) : 0;
 
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
 
   const quizEntries = Object.values(quizzes || {}) as AnyObj[];
-  const passed = quizEntries.filter((r) => {
-    const correct = Number(r?.correct ?? 0);
-    const total = Number(r?.total ?? 0);
-    const passMark = Number(r?.passMarkPercent ?? 60);
+  const passed = quizEntries.filter((result) => {
+    const correct = Number(result?.correct ?? 0);
+    const total = Number(result?.total ?? 0);
+    const passMark = Number(result?.passMarkPercent ?? 60);
     return isQuizPassed({ correct, total }, passMark);
   }).length;
 
-  const quizPassPercent = quizEntries.length ? Math.round((passed / quizEntries.length) * 100) : 0;
+  const quizPassPercent = quizEntries.length
+    ? Math.round((passed / quizEntries.length) * 100)
+    : 0;
 
   return {
     subjectsCount: subjects.length,
@@ -303,5 +318,4 @@ export async function getDashboardSnapshot() {
   };
 }
 
-// Alias rétro-compat si ton dashboard utilise encore getStats()
 export const getStats = getDashboardSnapshot;

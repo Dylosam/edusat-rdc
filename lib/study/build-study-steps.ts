@@ -2,22 +2,49 @@ import type { StudyStep } from "@/lib/study/type";
 import { getLessonsByChapterId } from "@/lib/data/lessons";
 import { findQuizByChapterId } from "@/lib/study/quiz-link";
 
+function extractPreviewFromContent(content: any): string {
+  if (!Array.isArray(content)) return "";
+
+  const textBlock = content.find(
+    (block) => block?.type === "text" && typeof block?.value === "string"
+  );
+
+  if (!textBlock?.value) return "";
+
+  const clean = String(textBlock.value).trim();
+  return clean.length > 140 ? `${clean.slice(0, 140)}...` : clean;
+}
+
+function extractKatexPreview(content: any): string | undefined {
+  if (!Array.isArray(content)) return undefined;
+
+  const formulaBlock = content.find(
+    (block) => block?.type === "formula" && typeof block?.value === "string"
+  );
+
+  return formulaBlock?.value;
+}
+
 export function buildStudySteps(chapterId: string): StudyStep[] {
   const lessons = getLessonsByChapterId(chapterId);
 
-  const lessonSteps: StudyStep[] = lessons.map((l: any, idx: number) => ({
-    id: `lesson:${l.id}`,
+  const lessonSteps: StudyStep[] = lessons.map((lesson: any, idx: number) => ({
+    id: `lesson:${lesson.id}`,
     kind: "lesson",
     kindLabel: "Leçon",
-    title: `${idx + 1}. ${l.title ?? "Leçon"}`,
-    subtitle: l.subtitle ?? "Lecture guidée",
-    minutes: typeof l.minutes === "number" ? l.minutes : 10,
-    katexPreview: l.katexPreview,
-    body: l.preview,
+    title: `${idx + 1}. ${lesson.title ?? "Leçon"}`,
+    subtitle: lesson.summary ?? "Lecture guidée",
+    minutes:
+      typeof lesson.durationMin === "number"
+        ? lesson.durationMin
+        : typeof lesson.minutes === "number"
+        ? lesson.minutes
+        : 10,
+    katexPreview: extractKatexPreview(lesson.content),
+    body: extractPreviewFromContent(lesson.content),
+    href: `/lessons/${lesson.id}`,
   }));
 
-  // ✅ On garde kind = "checkpoint" (déjà dans StudyStepKind)
-  // mais on l'affiche comme "Diagnostic"
   const diagnostic: StudyStep[] =
     lessons.length >= 2
       ? [
@@ -28,7 +55,7 @@ export function buildStudySteps(chapterId: string): StudyStep[] {
             title: "Diagnostic rapide (2 questions)",
             subtitle: "Repère vite ce qui te bloque.",
             minutes: 3,
-            body: "Deux questions pour identifier ton point faible. Ensuite tu choisis librement quoi réviser (pas de verrouillage).",
+            body: "Deux questions pour identifier ton point faible. Ensuite tu choisis librement quoi réviser.",
           },
         ]
       : [];
@@ -55,12 +82,11 @@ export function buildStudySteps(chapterId: string): StudyStep[] {
           title: "Quiz (diagnostic de maîtrise)",
           subtitle: "Mesure ton niveau et consolide tes faiblesses.",
           minutes: 8,
-          href: `/quiz/${quiz.id}`,
-          body: "Le quiz sert à repérer tes erreurs et guider ta révision. Pas de verrouillage.",
+          href: `/quiz/${quiz.id}?fresh=1`,
+          body: "Le quiz sert à repérer tes erreurs et guider ta révision.",
         },
       ]
     : [];
 
-  // ✅ quiz à la fin
   return [...lessonSteps, ...diagnostic, ...summary, ...quizStep];
 }

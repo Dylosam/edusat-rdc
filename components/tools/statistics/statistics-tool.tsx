@@ -131,18 +131,18 @@ export function StatisticsTool() {
   }, [rows]);
 
   function handleSeriesTypeChange(nextSeriesType: StatisticsSeriesType) {
-  setSeriesType(nextSeriesType);
-  setSelectedGoals(DEFAULT_GOALS_BY_SERIES[nextSeriesType] ?? []);
-  setRows(buildInitialRows(nextSeriesType));
+    setSeriesType(nextSeriesType);
+    setSelectedGoals(DEFAULT_GOALS_BY_SERIES[nextSeriesType] ?? []);
+    setRows(buildInitialRows(nextSeriesType));
 
-  if (nextSeriesType === 'bivariate') {
-    setChartType('scatter');
-  } else if (nextSeriesType === 'grouped_intervals') {
-    setChartType('histogram');
-  } else {
-    setChartType('bar');
+    if (nextSeriesType === 'bivariate') {
+      setChartType('scatter');
+    } else if (nextSeriesType === 'grouped_intervals') {
+      setChartType('histogram');
+    } else {
+      setChartType('bar');
+    }
   }
-}
 
   function handleChangeCell(rowId: string, columnKey: string, value: string) {
     setRows((currentRows) =>
@@ -195,67 +195,75 @@ export function StatisticsTool() {
   );
 
   return (
-    <div className="space-y-8">
-      <div className="mb-2">
-        <h1 className="mb-2 font-serif text-3xl font-bold sm:text-4xl">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="mb-1 sm:mb-2">
+        <h1 className="mb-2 font-serif text-3xl font-bold leading-tight sm:text-4xl">
           Tableau statistique intelligent
         </h1>
-        <p className="max-w-4xl leading-7 text-muted-foreground">
+        <p className="max-w-4xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
           Choisissez le type de série et les calculs souhaités. EduStat adapte
           automatiquement le tableau, ajoute les colonnes nécessaires comme
           ni·Xi, NCC, Xi², ni·Xi², XY, puis génère les résultats et les graphiques.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-medium">Type de série</CardTitle>
-            <Sigma className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+        <Card className="rounded-2xl">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
+            <CardTitle className="pr-2 text-sm font-medium leading-snug">
+              Type de série
+            </CardTitle>
+            <Sigma className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">
+          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
+            <div className="text-base font-bold sm:text-xl">
               {currentSeries?.label ?? '—'}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {currentSeries?.description ?? 'Tableau adaptatif'}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-medium">Colonnes actives</CardTitle>
-            <Table2 className="h-4 w-4 text-muted-foreground" />
+        <Card className="rounded-2xl">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
+            <CardTitle className="pr-2 text-sm font-medium leading-snug">
+              Colonnes actives
+            </CardTitle>
+            <Table2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
             <div className="text-2xl font-bold">{visibleColumns.length}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Colonnes affichées automatiquement
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-medium">Calculs demandés</CardTitle>
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
+        <Card className="rounded-2xl">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
+            <CardTitle className="pr-2 text-sm font-medium leading-snug">
+              Calculs demandés
+            </CardTitle>
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
             <div className="text-2xl font-bold">{selectedGoals.length}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Objectifs de calcul sélectionnés
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-medium">Graphique</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+        <Card className="rounded-2xl">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
+            <CardTitle className="pr-2 text-sm font-medium leading-snug">
+              Graphique
+            </CardTitle>
+            <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold capitalize">
+          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
+            <div className="text-base font-bold sm:text-xl">
               {chartType === 'none'
                 ? 'Aucun'
                 : chartType === 'bar'
@@ -268,7 +276,7 @@ export function StatisticsTool() {
                 ? 'Histogramme'
                 : 'Nuage'}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Représentation visuelle des données
             </p>
           </CardContent>
@@ -299,7 +307,7 @@ export function StatisticsTool() {
           initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.35, delay: 0.08 }}
-          className="space-y-6"
+          className="space-y-6 min-w-0"
         >
           <StatisticsGrid
             seriesType={seriesType}
@@ -311,31 +319,31 @@ export function StatisticsTool() {
           />
 
           <StatisticsChart
-  rows={rows}
-  chartType={chartType}
-  seriesType={seriesType}
-/>
+            rows={rows}
+            chartType={chartType}
+            seriesType={seriesType}
+          />
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, x: 12 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.35, delay: 0.1 }}
-          className="space-y-6"
+          className="space-y-6 min-w-0"
         >
           {hasAtLeastOneFilledValue ? (
             <>
               <StatisticsResults
-  rows={statisticRows}
-  dynamicRows={rows}
-  selectedGoals={selectedGoals}
-  seriesType={seriesType}
-/>
+                rows={statisticRows}
+                dynamicRows={rows}
+                selectedGoals={selectedGoals}
+                seriesType={seriesType}
+              />
               <StatisticsSummary
-  rows={statisticRows}
-  dynamicRows={rows}
-  seriesType={seriesType}
-/>
+                rows={statisticRows}
+                dynamicRows={rows}
+                seriesType={seriesType}
+              />
             </>
           ) : (
             <StatisticsEmptyState onReset={handleResetRows} />

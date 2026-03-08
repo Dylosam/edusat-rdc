@@ -141,7 +141,7 @@ export function PeriodicTool() {
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
-      className="space-y-8"
+      className="space-y-6 sm:space-y-8"
     >
       <section className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -149,20 +149,20 @@ export function PeriodicTool() {
           <span>Outils interactifs</span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-bold font-serif">
+        <h1 className="text-3xl font-bold font-serif leading-tight sm:text-4xl">
           Tableau périodique interactif
         </h1>
 
-        <p className="max-w-3xl text-muted-foreground">
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
           Explore les 118 éléments, recherche par symbole, nom ou numéro atomique, puis ouvre
           la fiche détaillée de chaque élément.
         </p>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card className="border-primary/10">
+      <div className="grid gap-4 sm:gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:gap-6">
+        <Card className="border-primary/10 rounded-2xl">
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-xl">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Search className="h-5 w-5 text-primary" />
               Recherche intelligente
             </CardTitle>
@@ -174,7 +174,7 @@ export function PeriodicTool() {
               <Input
                 value={queryInput}
                 onChange={(e) => setQueryInput(e.target.value)}
-                placeholder='Tape un nom, un symbole ou un numéro atomique (ex : Fer, Fe, 26)'
+                placeholder="Tape un nom, un symbole ou un numéro atomique (ex : Fer, Fe, 26)"
                 className="pl-10 pr-12"
               />
               {queryInput ? (
@@ -210,7 +210,7 @@ export function PeriodicTool() {
                   className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3"
                 >
                   <span
-                    className="h-3 w-3 rounded-full"
+                    className="h-3 w-3 shrink-0 rounded-full"
                     style={{ backgroundColor: meta.color }}
                   />
                   <span className="text-sm text-muted-foreground">{meta.label}</span>
@@ -220,15 +220,15 @@ export function PeriodicTool() {
           </CardContent>
         </Card>
 
-        <Card className="border-primary/10">
+        <Card className="border-primary/10 rounded-2xl">
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-xl">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Sparkles className="h-5 w-5 text-primary" />
               Aperçu
             </CardTitle>
           </CardHeader>
 
-          <CardContent className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <CardContent className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             <MiniInfoCard
               title="Éléments"
               value="118"
@@ -248,9 +248,9 @@ export function PeriodicTool() {
         </Card>
       </div>
 
-      <Card className="overflow-hidden border-primary/10">
+      <Card className="overflow-hidden rounded-2xl border-primary/10">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Layers className="h-5 w-5 text-primary" />
             Table des éléments
           </CardTitle>
@@ -261,8 +261,8 @@ export function PeriodicTool() {
 
         <CardContent>
           <div className="overflow-x-auto">
-            <div className="min-w-[1400px]">
-              <div className="grid grid-cols-[40px_repeat(18,minmax(0,1fr))] gap-2 text-[11px] text-muted-foreground">
+            <div className="min-w-[1120px] sm:min-w-[1320px] xl:min-w-[1400px]">
+              <div className="grid grid-cols-[34px_repeat(18,minmax(0,1fr))] gap-1.5 text-[10px] text-muted-foreground sm:grid-cols-[40px_repeat(18,minmax(0,1fr))] sm:gap-2 sm:text-[11px]">
                 <div />
                 {Array.from({ length: 18 }, (_, index) => (
                   <div key={index} className="text-center">
@@ -271,16 +271,16 @@ export function PeriodicTool() {
                 ))}
               </div>
 
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-1.5 sm:space-y-2">
                 {Array.from({ length: 7 }, (_, rowIndex) => {
                   const period = rowIndex + 1;
 
                   return (
                     <div
                       key={period}
-                      className="grid grid-cols-[40px_repeat(18,minmax(0,1fr))] gap-2"
+                      className="grid grid-cols-[34px_repeat(18,minmax(0,1fr))] gap-1.5 sm:grid-cols-[40px_repeat(18,minmax(0,1fr))] sm:gap-2"
                     >
-                      <div className="flex items-center justify-center text-[11px] text-muted-foreground">
+                      <div className="flex items-center justify-center text-[10px] text-muted-foreground sm:text-[11px]">
                         {period}
                       </div>
 
@@ -309,7 +309,7 @@ export function PeriodicTool() {
                 })}
               </div>
 
-              <div className="mt-6 space-y-3">
+              <div className="mt-5 space-y-2.5 sm:mt-6 sm:space-y-3">
                 <BandRow
                   label="LANTHANIDES"
                   items={lanthanides}
@@ -331,10 +331,10 @@ export function PeriodicTool() {
       </Card>
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-2xl p-0 sm:w-full">
           {selected ? (
             <ScrollArea className="max-h-[85vh]">
-              <div className="p-6 sm:p-8">
+              <div className="p-4 sm:p-6 lg:p-8">
                 <DialogHeader className="space-y-3 text-left">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{selected.symbol}</Badge>
@@ -342,7 +342,7 @@ export function PeriodicTool() {
                     <Badge variant="outline">{catLabel(selected.category)}</Badge>
                   </div>
 
-                  <DialogTitle className="text-2xl sm:text-3xl font-bold font-serif">
+                  <DialogTitle className="text-2xl font-bold font-serif sm:text-3xl">
                     {selected.name}
                   </DialogTitle>
 
@@ -351,7 +351,7 @@ export function PeriodicTool() {
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="mt-6 grid gap-3 sm:gap-4 md:grid-cols-3">
                   <InfoCard title="Masse atomique" value={formatMaybe(selected.weight)} />
                   <InfoCard
                     title="Électronégativité"
@@ -363,7 +363,7 @@ export function PeriodicTool() {
                   />
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div className="mt-4 grid gap-3 sm:gap-4 md:grid-cols-3">
                   <InfoCard title="Valence" value={formatMaybe(selected.valence)} />
                   <InfoCard
                     title="Oxydation commune"
@@ -372,8 +372,8 @@ export function PeriodicTool() {
                   <InfoCard title="État" value={formatMaybe(selected.state)} />
                 </div>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                  <Card>
+                <div className="mt-4 grid gap-3 sm:gap-4 lg:grid-cols-2">
+                  <Card className="rounded-2xl">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">
                         Configuration électronique
@@ -384,11 +384,11 @@ export function PeriodicTool() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="rounded-2xl">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Position dans le tableau</CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
                       <div>
                         Période :{' '}
                         <span className="font-semibold text-foreground">
@@ -412,7 +412,7 @@ export function PeriodicTool() {
                   </Card>
                 </div>
 
-                <Card className="mt-4">
+                <Card className="mt-4 rounded-2xl">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">États d’oxydation</CardTitle>
                   </CardHeader>
@@ -435,11 +435,14 @@ export function PeriodicTool() {
                   <Badge variant="outline">Numéro atomique : {selected.z}</Badge>
                 </div>
 
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Button onClick={() => setSelected(null)}>Fermer</Button>
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
+                  <Button onClick={() => setSelected(null)} className="w-full sm:w-auto">
+                    Fermer
+                  </Button>
 
                   <Button
                     variant="outline"
+                    className="w-full sm:w-auto"
                     onClick={() => {
                       const next = enrichedElements.find(
                         (element) => element.z === selected.z + 1
@@ -480,10 +483,10 @@ function MiniInfoCard({
   description: string;
 }) {
   return (
-    <Card className="border-primary/10">
-      <CardContent className="p-5">
+    <Card className="rounded-2xl border-primary/10">
+      <CardContent className="p-4 sm:p-5">
         <div className="text-sm text-muted-foreground">{title}</div>
-        <div className="mt-2 text-lg font-bold">{value}</div>
+        <div className="mt-2 text-base font-bold sm:text-lg">{value}</div>
         <p className="mt-2 text-xs text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
@@ -498,21 +501,23 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <Card className="border-primary/10">
+    <Card className="rounded-2xl border-primary/10">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-base font-semibold">{value}</div>
+        <div className="break-words text-base font-semibold">{value}</div>
       </CardContent>
     </Card>
   );
 }
 
 function EmptyCell() {
-  return <div className="h-[74px] rounded-xl border border-dashed bg-muted/20" />;
+  return (
+    <div className="h-[62px] rounded-xl border border-dashed bg-muted/20 sm:h-[74px]" />
+  );
 }
 
 function ElementCell({
@@ -529,29 +534,29 @@ function ElementCell({
       type="button"
       onClick={onClick}
       title={`${element.name} (${element.symbol})`}
-      className="group h-[74px] overflow-hidden rounded-xl border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+      className="group h-[62px] overflow-hidden rounded-xl border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:h-[74px]"
     >
       <div className="h-1 w-full" style={{ backgroundColor: color }} />
 
-      <div className="flex h-[calc(74px-4px)] flex-col justify-between px-3 py-2">
+      <div className="flex h-[calc(62px-4px)] flex-col justify-between px-2 py-1.5 sm:h-[calc(74px-4px)] sm:px-3 sm:py-2">
         <div className="flex items-start justify-between">
-          <span className="text-[10px] text-muted-foreground leading-none">
+          <span className="text-[9px] leading-none text-muted-foreground sm:text-[10px]">
             {element.z}
           </span>
 
           <span
-            className="h-2.5 w-2.5 rounded-full"
+            className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
             style={{ backgroundColor: color }}
           />
         </div>
 
         <div className="flex flex-1 items-center justify-center">
-          <span className="text-[22px] font-bold leading-none tracking-wide">
+          <span className="text-[18px] font-bold leading-none tracking-wide sm:text-[22px]">
             {element.symbol}
           </span>
         </div>
 
-        <div className="text-center text-[11px] leading-none text-muted-foreground">
+        <div className="text-center text-[9px] leading-none text-muted-foreground sm:text-[11px]">
           {element.weight ?? '—'}
         </div>
       </div>
@@ -573,18 +578,18 @@ function BandRow({
   onPick: (element: PeriodicElement) => void;
 }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 items-start">
-      <div className="flex h-[74px] items-center text-[11px] text-muted-foreground">
+    <div className="grid grid-cols-[110px_1fr] items-start gap-1.5 sm:grid-cols-[140px_1fr] sm:gap-2">
+      <div className="flex h-[62px] items-center text-[10px] text-muted-foreground sm:h-[74px] sm:text-[11px]">
         {label}
       </div>
 
-      <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-2">
+      <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1.5 sm:gap-2">
         {items.slice(0, 15).map((element) => {
           if (showFiltered && !visibleSet.has(element.z)) {
             return (
               <div
                 key={element.z}
-                className="h-[74px] rounded-xl border border-dashed bg-muted/20"
+                className="h-[62px] rounded-xl border border-dashed bg-muted/20 sm:h-[74px]"
               />
             );
           }

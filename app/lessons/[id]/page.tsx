@@ -1,4 +1,3 @@
-// app/lessons/[id]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -25,11 +24,14 @@ import { getLessonById, getPrevNextLesson } from "@/lib/data/lessons";
 import { isLessonCompleted, toggleLessonCompleted } from "@/lib/progress";
 
 import { LatexBlock } from "@/components/math/latex";
-import { normalizeLatex } from "@/lib/utils/latex";
+
+function normalizeLatex(value?: string) {
+  return typeof value === "string" ? value.trim() : "";
+}
 
 function ContentBlock({ block }: { block: any }) {
   if (block.type === "text") {
-    return <p className="text-muted-foreground leading-relaxed">{block.value}</p>;
+    return <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{block.value}</p>;
   }
 
   if (block.type === "tip") {
@@ -38,7 +40,7 @@ function ContentBlock({ block }: { block: any }) {
         <div className="mt-0.5">
           <Lightbulb className="h-5 w-5 text-primary" />
         </div>
-        <p className="text-sm leading-relaxed">
+        <p className="text-sm leading-relaxed whitespace-pre-line">
           <span className="font-semibold">Astuce :</span> {block.value}
         </p>
       </div>
@@ -52,7 +54,7 @@ function ContentBlock({ block }: { block: any }) {
           <BookOpen className="h-4 w-4 text-primary" />
           <p className="font-semibold">{block.title || "Exemple"}</p>
         </div>
-        <p className="text-muted-foreground leading-relaxed">{block.value}</p>
+        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{block.value}</p>
       </div>
     );
   }
@@ -82,7 +84,6 @@ export default function LessonPage() {
     return getPrevNextLesson(lesson.chapterId, lesson.id);
   }, [lesson]);
 
-  // ✅ anti-hydration mismatch : localStorage seulement après mount
   const [mounted, setMounted] = useState(false);
   const [completed, setCompleted] = useState(false);
 

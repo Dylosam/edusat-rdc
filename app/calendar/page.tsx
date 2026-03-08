@@ -51,7 +51,7 @@ function diffDays(fromYMDStr: string, toYMDStr: string) {
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 function weekdayIndexMondayFirst(date: Date) {
-  const js = date.getDay(); // 0=Sun..6=Sat
+  const js = date.getDay();
   return js === 0 ? 6 : js - 1;
 }
 function buildMonthGrid(viewDate: Date) {
@@ -65,7 +65,7 @@ function buildMonthGrid(viewDate: Date) {
 }
 
 /* ---------------------------------------------
-  Legend + Events (KEEP Bolt style vibe)
+  Legend + Events
 --------------------------------------------- */
 type LegendKey =
   | "proclamation"
@@ -162,7 +162,7 @@ const OFFICIAL_EVENTS: OfficialEvent[] = [
 --------------------------------------------- */
 type CustomEvent = {
   id: string;
-  date: string; // YMD
+  date: string;
   title: string;
   note?: string;
   createdAt: string;
@@ -223,7 +223,11 @@ function getEventsForDayYMD(dayYMD: string, officialEvents: OfficialEvent[], cus
     perso: 7,
   };
 
-  hits.sort((a, b) => ((priority as any)[(a as any).type] ?? 99) - ((priority as any)[(b as any).type] ?? 99));
+  hits.sort(
+    (a, b) =>
+      ((priority as any)[(a as any).type] ?? 99) -
+      ((priority as any)[(b as any).type] ?? 99)
+  );
   return hits;
 }
 function uniqueTypes(events: DayEvent[]) {
@@ -236,11 +240,11 @@ function uniqueTypes(events: DayEvent[]) {
 function DotRow({ types }: { types: LegendKey[] }) {
   const shown = types.slice(0, 4);
   return (
-    <div className="mt-2 flex items-center gap-1.5">
+    <div className="mt-1.5 flex items-center gap-1 sm:mt-2 sm:gap-1.5">
       {shown.map((t) => (
         <span
           key={t}
-          className={`h-2.5 w-2.5 rounded-full ${LEGEND[t]?.dot ?? "bg-muted-foreground/40"}`}
+          className={`h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5 ${LEGEND[t]?.dot ?? "bg-muted-foreground/40"}`}
           title={LEGEND[t]?.label ?? t}
         />
       ))}
@@ -255,7 +259,6 @@ function DotRow({ types }: { types: LegendKey[] }) {
   Component
 --------------------------------------------- */
 export default function CalendarPage() {
-  // ✅ enter animation like dashboard
   const [enter, setEnter] = useState(false);
   useEffect(() => {
     const raf = requestAnimationFrame(() => setEnter(true));
@@ -368,55 +371,79 @@ export default function CalendarPage() {
     setCustom(next);
   }
 
-  /* ---------------------------------------------
-    Style tokens (Dashboard-like)
-  --------------------------------------------- */
   const cardGlass =
     "rounded-2xl border border-border/60 bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/40 shadow-sm";
   const btnGhost =
-    "rounded-xl border border-border/70 bg-background/30 px-3 py-2 text-sm font-medium hover:bg-accent/40 transition";
+    "inline-flex items-center justify-center rounded-xl border border-border/70 bg-background/30 px-3 py-2 text-sm font-medium hover:bg-accent/40 transition";
   const chip =
     "rounded-full border border-border/70 bg-background/30 px-3 py-1 text-xs text-muted-foreground";
 
   const pageEnter = [
     "transition-all duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform,filter]",
-    enter ? "opacity-100 translate-y-0 blur-0 scale-100" : "opacity-0 translate-y-3 blur-[7px] scale-[0.995]",
+    enter
+      ? "opacity-100 translate-y-0 blur-0 scale-100"
+      : "opacity-0 translate-y-3 blur-[7px] scale-[0.995]",
   ].join(" ");
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
-      <main className={["container mx-auto px-4 sm:px-6 lg:px-8 py-8", pageEnter].join(" ")}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2 font-serif">Calendrier</h1>
-            <p className="text-muted-foreground">EduStat RDC · Année 2025–2026</p>
+      <main className={["mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8", pageEnter].join(" ")}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="mb-6 sm:mb-8">
+            <h1 className="mb-2 text-3xl font-bold font-serif leading-tight sm:text-4xl">
+              Calendrier
+            </h1>
+            <p className="text-sm text-muted-foreground sm:text-base">
+              EduStat RDC · Année 2025–2026
+            </p>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1fr_440px]">
-            {/* LEFT */}
+          <div className="grid gap-6 lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_440px]">
             <div className="space-y-6">
-              {/* Header month */}
               <Card className={cardGlass}>
                 <CardHeader className="pb-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-4">
                     <div className="min-w-0">
                       <div className="text-xs tracking-wide text-muted-foreground">PLANNING</div>
-                      <CardTitle className="text-2xl font-semibold">Calendrier</CardTitle>
-                      <div className="text-sm text-muted-foreground">EduStat RDC · Année 2025–2026</div>
+                      <CardTitle className="text-xl font-semibold sm:text-2xl">
+                        Calendrier
+                      </CardTitle>
+                      <div className="text-sm text-muted-foreground">
+                        EduStat RDC · Année 2025–2026
+                      </div>
                     </div>
 
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <button className={btnGhost} onClick={goPrevMonth} title="Mois précédent" aria-label="Mois précédent">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        className={btnGhost}
+                        onClick={goPrevMonth}
+                        title="Mois précédent"
+                        aria-label="Mois précédent"
+                      >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
 
-                      <div className={[chip, "px-4 py-2 text-sm text-foreground/80"].join(" ")}>
+                      <div
+                        className={[
+                          chip,
+                          "min-w-[140px] px-4 py-2 text-center text-sm text-foreground/80 sm:min-w-[180px]",
+                        ].join(" ")}
+                      >
                         {monthTitle}
                       </div>
 
-                      <button className={btnGhost} onClick={goNextMonth} title="Mois suivant" aria-label="Mois suivant">
+                      <button
+                        className={btnGhost}
+                        onClick={goNextMonth}
+                        title="Mois suivant"
+                        aria-label="Mois suivant"
+                      >
                         <ChevronRight className="h-4 w-4" />
                       </button>
 
@@ -428,28 +455,27 @@ export default function CalendarPage() {
                 </CardHeader>
               </Card>
 
-              {/* Calendar grid */}
               <Card className={cardGlass}>
-                <CardContent className="p-4 sm:p-5">
-                  <div className="grid grid-cols-7 gap-2 mb-3">
+                <CardContent className="p-3 sm:p-4 md:p-5">
+                  <div className="mb-3 grid grid-cols-7 gap-1.5 sm:gap-2">
                     {WEEKDAYS.map((d) => (
                       <div
                         key={d}
-                        className="text-[11px] font-semibold text-muted-foreground text-center tracking-wide"
+                        className="text-center text-[10px] font-semibold tracking-wide text-muted-foreground sm:text-[11px]"
                       >
                         {d}
                       </div>
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
                     {days.map((d, idx) => {
                       const ymd = toYMD(d);
                       const inMonth = isSameMonth(d, viewDate);
                       const isSelected = ymd === selectedYMD;
                       const isToday = ymd === todayYMD;
 
-                      const col = idx % 7; // 0..6 (Mon..Sun)
+                      const col = idx % 7;
                       const isWeekend = col >= 5;
 
                       const events = getEventsForDayYMD(ymd, OFFICIAL_EVENTS, custom.events);
@@ -460,19 +486,28 @@ export default function CalendarPage() {
                           key={ymd}
                           onClick={() => onSelectDay(d)}
                           className={[
-                            "relative rounded-2xl p-2.5 sm:p-3 text-left min-h-[88px] transition border",
-                            inMonth ? "bg-background/30 border-border/70" : "bg-background/20 border-border/50 opacity-70",
+                            "relative min-h-[76px] rounded-xl border p-2 text-left transition sm:min-h-[88px] sm:rounded-2xl sm:p-2.5",
+                            inMonth
+                              ? "border-border/70 bg-background/30"
+                              : "border-border/50 bg-background/20 opacity-70",
                             isWeekend ? "text-muted-foreground" : "text-foreground/90",
-                            "hover:bg-accent/30 hover:border-border",
+                            "hover:border-border hover:bg-accent/30",
                             isSelected ? "ring-2 ring-primary/60" : "",
-                            isToday && !isSelected ? "outline outline-1 outline-emerald-500/40" : "",
+                            isToday && !isSelected
+                              ? "outline outline-1 outline-emerald-500/40"
+                              : "",
                           ].join(" ")}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="text-sm font-semibold leading-none">{d.getDate()}</div>
+                          <div className="flex items-start justify-between gap-1 sm:gap-2">
+                            <div className="text-xs font-semibold leading-none sm:text-sm">
+                              {d.getDate()}
+                            </div>
 
                             {isToday ? (
-                              <span className="inline-flex items-center justify-center h-3.5 w-[48px]" title="Aujourd’hui">
+                              <span
+                                className="inline-flex h-3.5 w-4 items-center justify-center sm:w-[48px]"
+                                title="Aujourd’hui"
+                              >
                                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                               </span>
                             ) : null}
@@ -481,11 +516,13 @@ export default function CalendarPage() {
                           <DotRow types={types} />
 
                           {events[0] ? (
-                            <div className="mt-2 text-[11px] text-muted-foreground line-clamp-2">
+                            <div className="mt-1 text-[10px] leading-4 text-muted-foreground line-clamp-2 sm:mt-2 sm:text-[11px]">
                               {(events[0] as any).label || (events[0] as any).title}
                             </div>
                           ) : (
-                            <div className="mt-2 text-[11px] text-muted-foreground/50">—</div>
+                            <div className="mt-1 text-[10px] leading-4 text-muted-foreground/50 sm:mt-2 sm:text-[11px]">
+                              —
+                            </div>
                           )}
                         </button>
                       );
@@ -494,10 +531,9 @@ export default function CalendarPage() {
                 </CardContent>
               </Card>
 
-              {/* Legend */}
               <Card className={cardGlass}>
                 <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="font-semibold">Légende</div>
                     <div className="text-xs text-muted-foreground">Codes couleur</div>
                   </div>
@@ -506,9 +542,9 @@ export default function CalendarPage() {
                     {Object.entries(LEGEND).map(([k, v]) => (
                       <span
                         key={k}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${v.pill}`}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs sm:text-sm ${v.pill}`}
                       >
-                        <span className={`w-2.5 h-2.5 rounded-full ${v.dot}`} />
+                        <span className={`h-2.5 w-2.5 rounded-full ${v.dot}`} />
                         {v.label}
                       </span>
                     ))}
@@ -517,16 +553,14 @@ export default function CalendarPage() {
               </Card>
             </div>
 
-            {/* RIGHT */}
             <div className="space-y-6">
-              {/* Selected day panel */}
               <Card className={cardGlass}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="text-xs tracking-wide text-muted-foreground">DÉTAILS</div>
-                      <CardTitle className="text-2xl">{selectedLabel}</CardTitle>
-                      <div className="text-sm text-muted-foreground mt-1">
+                      <CardTitle className="text-xl sm:text-2xl">{selectedLabel}</CardTitle>
+                      <div className="mt-1 text-sm text-muted-foreground">
                         {selectedTypes.length
                           ? selectedTypes.map((t) => LEGEND[t]?.label ?? t).join(" · ")
                           : selectedYMD === todayYMD
@@ -535,7 +569,12 @@ export default function CalendarPage() {
                       </div>
                     </div>
 
-                    <Button variant="outline" size="sm" onClick={() => setShowAdd(true)} className="gap-2 rounded-xl">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAdd(true)}
+                      className="w-full gap-2 rounded-xl sm:w-auto"
+                    >
                       <Plus className="h-4 w-4" />
                       Personnaliser +
                     </Button>
@@ -543,7 +582,6 @@ export default function CalendarPage() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Official */}
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Événements</div>
 
@@ -564,7 +602,7 @@ export default function CalendarPage() {
                             >
                               <div className="text-sm font-semibold">{(e as any).label}</div>
                               {(e as any).start !== (e as any).end ? (
-                                <div className="text-xs text-muted-foreground mt-1">
+                                <div className="mt-1 text-xs text-muted-foreground">
                                   {(e as any).start} → {(e as any).end}
                                 </div>
                               ) : null}
@@ -576,12 +614,13 @@ export default function CalendarPage() {
 
                   <Separator />
 
-                  {/* Custom */}
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Mes événements</div>
 
                     {selectedDayEvents.filter((e) => e.source === "custom").length === 0 ? (
-                      <div className="text-sm text-muted-foreground">Aucun événement personnalisé.</div>
+                      <div className="text-sm text-muted-foreground">
+                        Aucun événement personnalisé.
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         {selectedDayEvents
@@ -592,17 +631,21 @@ export default function CalendarPage() {
                               className="rounded-2xl border border-purple-400/25 bg-purple-400/10 px-4 py-3 text-purple-100"
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <div className="text-sm font-semibold">{(e as any).title}</div>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold">
+                                    {(e as any).title}
+                                  </div>
                                   {(e as any).note ? (
-                                    <div className="text-xs text-muted-foreground mt-1">{(e as any).note}</div>
+                                    <div className="mt-1 text-xs text-muted-foreground break-words">
+                                      {(e as any).note}
+                                    </div>
                                   ) : null}
                                 </div>
 
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  className="h-9 w-9 rounded-xl border-white/10 bg-white/5 hover:bg-white/10"
+                                  className="h-9 w-9 shrink-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10"
                                   onClick={() => deleteCustomEvent((e as any).id)}
                                   title="Supprimer"
                                 >
@@ -615,23 +658,22 @@ export default function CalendarPage() {
                     )}
                   </div>
 
-                  <div className="text-xs text-muted-foreground flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
                     <CalendarDays className="h-4 w-4" />
                     Stocké dans le navigateur (LocalStorage).
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Synthèse + jours restants */}
               <Card className={cardGlass}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3">
                     <div>
                       <div className="text-xs tracking-wide text-muted-foreground">RÉSUMÉ</div>
-                      <CardTitle className="text-xl">Synthèse</CardTitle>
+                      <CardTitle className="text-lg sm:text-xl">Synthèse</CardTitle>
                     </div>
 
-                    <Badge variant="outline" className="rounded-full">
+                    <Badge variant="outline" className="w-fit rounded-full whitespace-normal text-left">
                       {daysRemaining} jours restants · Fin : {SCHOOL_YEAR_END}
                     </Badge>
                   </div>
@@ -640,7 +682,7 @@ export default function CalendarPage() {
                 <CardContent className="space-y-3">
                   <div className="text-sm text-muted-foreground">{SYNTHESE.title}</div>
 
-                  <ul className="text-sm text-foreground/80 list-disc pl-5 space-y-1">
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-foreground/80">
                     {SYNTHESE.items.map((x) => (
                       <li key={x}>{x}</li>
                     ))}
@@ -650,23 +692,26 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Modal: Add custom event (KEEP Bolt glass style) */}
           {showAdd ? (
-            <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
               <div className="w-full max-w-2xl">
-                <Card className="rounded-3xl border-border/70 bg-card/70 backdrop-blur-xl shadow-2xl">
+                <Card className="rounded-3xl border-border/70 bg-card/70 shadow-2xl backdrop-blur-xl">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="text-xs tracking-wide text-muted-foreground">PERSONNALISER</div>
-                        <CardTitle className="text-3xl font-semibold">Ajouter un événement</CardTitle>
+                      <div className="space-y-1 min-w-0">
+                        <div className="text-xs tracking-wide text-muted-foreground">
+                          PERSONNALISER
+                        </div>
+                        <CardTitle className="text-2xl font-semibold leading-tight sm:text-3xl">
+                          Ajouter un événement
+                        </CardTitle>
                         <div className="text-sm text-muted-foreground">Le {selectedLabel}</div>
                       </div>
 
                       <Button
                         variant="outline"
                         size="icon"
-                        className="rounded-2xl h-11 w-11"
+                        className="h-11 w-11 shrink-0 rounded-2xl"
                         onClick={() => setShowAdd(false)}
                         title="Fermer"
                       >
@@ -679,7 +724,7 @@ export default function CalendarPage() {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Titre</label>
                       <input
-                        className="w-full rounded-2xl border border-border/70 bg-background/40 px-4 py-3 text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/50"
+                        className="w-full rounded-2xl border border-border/70 bg-background/40 px-4 py-3 text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50"
                         placeholder="Ex : Révision intense, cours particulier, anniversaire…"
                         value={customTitle}
                         onChange={(e) => setCustomTitle(e.target.value)}
@@ -689,18 +734,26 @@ export default function CalendarPage() {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Note (optionnel)</label>
                       <textarea
-                        className="w-full rounded-2xl border border-border/70 bg-background/40 px-4 py-3 text-foreground placeholder:text-muted-foreground min-h-[110px] outline-none focus:ring-2 focus:ring-primary/50"
+                        className="min-h-[110px] w-full rounded-2xl border border-border/70 bg-background/40 px-4 py-3 text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50"
                         placeholder="Détails…"
                         value={customNote}
                         onChange={(e) => setCustomNote(e.target.value)}
                       />
                     </div>
 
-                    <div className="flex gap-2 justify-end pt-1">
-                      <Button variant="outline" className="rounded-2xl" onClick={() => setShowAdd(false)}>
+                    <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+                      <Button
+                        variant="outline"
+                        className="w-full rounded-2xl sm:w-auto"
+                        onClick={() => setShowAdd(false)}
+                      >
                         Annuler
                       </Button>
-                      <Button className="rounded-2xl" onClick={addCustomEvent} disabled={!customTitle.trim()}>
+                      <Button
+                        className="w-full rounded-2xl sm:w-auto"
+                        onClick={addCustomEvent}
+                        disabled={!customTitle.trim()}
+                      >
                         Ajouter
                       </Button>
                     </div>

@@ -1,86 +1,130 @@
-// lib/quiz/use-quiz-timer.ts
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useQuizTimer(opts: {
+type UseQuizTimerParams = {
   enabled: boolean;
   initialRemainingSec: number;
-  onTimeUp: () => void;
+  onTimeUp?: () => void;
   onRemainingChange?: (remaining: number, running: boolean) => void;
-}) {
-  const { enabled, initialRemainingSec, onTimeUp, onRemainingChange } = opts;
+};
 
-  const [remaining, setRemainingState] = useState<number>(initialRemainingSec);
-  const [running, setRunning] = useState<boolean>(false);
+export function formatTime(totalSec: number): string {
+  const safe = Math.max(0, Math.floor(totalSec));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
 
-  const intervalRef = useRef<number | null>(null);
+export function useQuizTimer({
+  enabled,
+  initialRemainingSec,
+  onTimeUp,
+  onRemainingChange,
+}: UseQuizTimerParams) {
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, Math.floor(initialRemainingSec || 0))
+  );
+  const [running, setRunning] = useState(false);
 
-  // reset when initial changes (ex: load session or quiz)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onTimeUpRef = useRef(onTimeUp);
+  const onRemainingChangeRef = useRef(onRemainingChange);
+
   useEffect(() => {
-    setRemainingState(initialRemainingSec);
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
+
+  useEffect(() => {
+    onRemainingChangeRef.current = onRemainingChange;
+  }, [onRemainingChange]);
+
+  const clear = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  const pause = useCallback(() => {
+    clear();
     setRunning(false);
-  }, [initialRemainingSec]);
+  }, [clear]);
 
-  // tick
-  useEffect(() => {
+  const start = useCallback(() => {
     if (!enabled) return;
-    if (!running) return;
 
-    if (intervalRef.current) window.clearInterval(intervalRef.current);
+    setRunning(true);
+  }, [enabled]);
 
-    intervalRef.current = window.setInterval(() => {
-      setRemainingState((r) => {
-        const next = Math.max(0, r - 1);
-        if (next === 0) {
-          // stop + callback
+  const reset = useCallback(
+    (nextRemaining?: number) => {
+      clear();
+      setRunning(false);
+      setRemaining(
+        Math.max(
+          0,
+          Math.floor(
+            typeof nextRemaining === "number" ? nextRemaining : initialRemainingSec || 0
+          )
+        )
+      );
+    },
+    [clear, initialRemainingSec]
+  );
+
+  // ✅ Resynchronise quand la valeur initiale change (ex: quiz chargé après render)
+  useEffect(() => {
+    if (!enabled) {
+      clear();
+      setRunning(false);
+      setRemaining(0);
+      return;
+    }
+
+    setRemaining(Math.max(0, Math.floor(initialRemainingSec || 0)));
+  }, [enabled, initialRemainingSec, clear]);
+
+  // ✅ Lance / arrête réellement l'interval
+  useEffect(() => {
+    if (!enabled || !running) {
+      clear();
+      return;
+    }
+
+    if (remaining <= 0) {
+      clear();
+      setRunning(false);
+      return;
+    }
+
+    intervalRef.current = setInterval(() => {
+      setRemaining((prev) => {
+        const next = Math.max(0, prev - 1);
+
+        if (next <= 0) {
+          clear();
           setRunning(false);
-          if (intervalRef.current) {
-            window.clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-          onTimeUp();
+          onTimeUpRef.current?.();
+          return 0;
         }
+
         return next;
       });
     }, 1000);
 
-    return () => {
-      if (intervalRef.current) {
-        window.clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [enabled, running, onTimeUp]);
+    return clear;
+  }, [enabled, running, remaining, clear]);
 
-  // report changes for persistence
+  // ✅ Notifie les changements
   useEffect(() => {
-    if (!enabled) return;
-    onRemainingChange?.(remaining, running);
-  }, [enabled, remaining, running, onRemainingChange]);
+    onRemainingChangeRef.current?.(remaining, running);
+  }, [remaining, running]);
 
-  // pause when tab hidden
+  // cleanup global
   useEffect(() => {
-    if (!enabled) return;
-    const handler = () => {
-      if (document.hidden) setRunning(false);
-    };
-    document.addEventListener("visibilitychange", handler);
-    return () => document.removeEventListener("visibilitychange", handler);
-  }, [enabled]);
-
-  const setRemaining = (sec: number) => {
-    if (!enabled) return;
-    setRemainingState(Math.max(0, Math.floor(sec)));
-  };
-
-  const start = () => enabled && remaining > 0 && setRunning(true);
-  const pause = () => enabled && setRunning(false);
-  const reset = (sec?: number) => {
-    if (!enabled) return;
-    setRemainingState(Math.max(0, Math.floor(sec ?? initialRemainingSec)));
-    setRunning(false);
-  };
+    return () => clear();
+  }, [clear]);
 
   return {
     remaining,
@@ -88,12 +132,5 @@ export function useQuizTimer(opts: {
     start,
     pause,
     reset,
-    setRemaining,
   };
-}
-
-export function formatTime(sec: number) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
 }

@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { toast } from "sonner";
-
+import { LatexInline } from "@/components/math/latex";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-
+import { LatexBlock } from "@/components/math/latex";
 import {
   ArrowLeft,
   ArrowRight,
@@ -63,10 +63,9 @@ function shuffle<T>(arr: T[]) {
 
 function normalizeAnswer(value: any, q: QuizQuestion) {
   if (q.type === "multiple_choice") return Array.isArray(value) ? value : [];
-  if (q.type === "numeric")
-    return value === "" || value === null || value === undefined
-      ? ""
-      : String(value);
+  if (q.type === "numeric") {
+    return value === "" || value === null || value === undefined ? "" : String(value);
+  }
   return value ?? "";
 }
 
@@ -117,10 +116,12 @@ function applyOrderFromSession(quiz: Quiz, session: QuizSessionState): QuizQuest
   if (session.questionOrder?.length) {
     const map = new Map(base.map((q) => [q.id, q] as const));
     const rebuilt: QuizQuestion[] = [];
+
     for (let i = 0; i < session.questionOrder.length; i++) {
       const q = map.get(session.questionOrder[i]);
       if (q) rebuilt.push(q);
     }
+
     if (rebuilt.length > 0) {
       const used = new Set(rebuilt.map((q) => q.id));
       const missing = base.filter((q) => !used.has(q.id));
@@ -137,6 +138,7 @@ function applyOrderFromSession(quiz: Quiz, session: QuizSessionState): QuizQuest
       const clean = ord.filter((x) => set.has(x));
       const used = new Set(clean);
       const missing = q.options.filter((x) => !used.has(x));
+
       return { ...q, options: [...clean, ...missing] };
     });
   }
@@ -144,18 +146,15 @@ function applyOrderFromSession(quiz: Quiz, session: QuizSessionState): QuizQuest
   return ordered;
 }
 
-/** 🔒 sécurise chapterId pour éviter le redirect /subjects */
 function resolveChapterId(quiz: Quiz | null, quizId: string): string | null {
   const fromQuiz = (quiz as any)?.chapterId;
   if (typeof fromQuiz === "string" && fromQuiz.trim().length) return fromQuiz;
 
-  // patterns fréquents
   if (quizId.startsWith("quiz-")) {
     const guess = quizId.replace(/^quiz-/, "");
     if (guess.trim().length) return guess;
   }
 
-  // si ton quizId est déjà le chapterId
   if (quizId.trim().length) return quizId;
 
   return null;
@@ -167,22 +166,23 @@ export default function QuizPage() {
   const searchParams = useSearchParams();
 
   const quizId = params?.id as string;
-  const fresh = searchParams.get("fresh"); // ✅ dépendance clé
+  const fresh = searchParams.get("fresh");
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [sessionQuestions, setSessionQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
-
-  // ✅ SOURCE DE VÉRITÉ pour l'écran résultat (évite 0% quand answers vides)
   const [storedResult, setStoredResult] = useState<StoredQuizResult | null>(null);
-
   const [isLoading, setIsLoading] = useState(true);
 
   const startedAtRef = useRef<number | null>(null);
 
-  /** ✅ Reset "hard" (utilisé pour "Refaire") */
+  const questions = sessionQuestions.length ? sessionQuestions : quiz?.questions ?? [];
+  const totalQuestions = questions.length;
+  const timeLimitSec = quiz?.timeLimitSec ?? 0;
+  const chapterIdResolved = resolveChapterId(quiz, quizId);
+
   const hardReset = () => {
     clearQuizAnswers(quizId);
     clearQuizResult(quizId);
@@ -196,19 +196,15 @@ export default function QuizPage() {
     startedAtRef.current = null;
   };
 
-  /**
-   * ✅ IMPORTANT :
-   * si fresh existe => reset AVANT de recharger answers/result/session
-   */
   useEffect(() => {
     if (!fresh) return;
     hardReset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizId, fresh]);
 
-  // Load quiz
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setIsLoading(true);
       const q = await getQuizById(quizId);
@@ -216,31 +212,37 @@ export default function QuizPage() {
       setQuiz(q);
       setIsLoading(false);
     })();
+
     return () => {
       alive = false;
     };
   }, [quizId]);
 
-  // Load stored answers/result (après reset éventuel via fresh)
-  useEffect(() => {
-    const savedAnswers = loadQuizAnswers(quizId);
-    if (savedAnswers) setAnswers(savedAnswers);
+ useEffect(() => {
+  if (fresh) {
+    setAnswers({});
+    setStoredResult(null);
+    setIsSubmitted(false);
+    return;
+  }
 
-    const savedResult = loadQuizResult(quizId) as StoredQuizResult | null;
-    if (savedResult) {
-      setStoredResult(savedResult);
-      setIsSubmitted(true);
-    } else {
-      setStoredResult(null);
-      setIsSubmitted(false);
-    }
-  }, [quizId, fresh]);
+  const savedAnswers = loadQuizAnswers(quizId);
+  if (savedAnswers) setAnswers(savedAnswers);
+  else setAnswers({});
 
-  // Restore session (order + index + timer) or create a fresh one
+  const savedResult = loadQuizResult(quizId) as StoredQuizResult | null;
+  if (savedResult) {
+    setStoredResult(savedResult);
+    setIsSubmitted(true);
+  } else {
+    setStoredResult(null);
+    setIsSubmitted(false);
+  }
+}, [quizId, fresh]);
+
   useEffect(() => {
     if (!quiz) return;
 
-    // si résultat stocké => pas de session, juste questions dans l'ordre original
     const savedResult = loadQuizResult(quizId);
     if (savedResult) {
       clearQuizSession(quizId);
@@ -259,7 +261,6 @@ export default function QuizPage() {
       return;
     }
 
-    // create new session
     const built = buildSessionFromQuiz(quiz);
     setSessionQuestions(built.questions);
     setCurrentQuestionIndex(0);
@@ -278,12 +279,6 @@ export default function QuizPage() {
     });
   }, [quiz, quizId, fresh]);
 
-  const questions = sessionQuestions.length ? sessionQuestions : quiz?.questions ?? [];
-  const totalQuestions = questions.length;
-
-  // Timer
-  const timeLimitSec = quiz?.timeLimitSec ?? 0;
-
   const initialRemaining = useMemo(() => {
     if (!quiz) return 1;
     if (!quiz.timeLimitSec) return 1;
@@ -291,6 +286,53 @@ export default function QuizPage() {
     if (s && typeof s.remainingSec === "number") return Math.max(0, s.remainingSec);
     return quiz.timeLimitSec;
   }, [quiz, quizId, fresh]);
+
+  const handleSubmit = (auto = false) => {
+    if (!quiz) return;
+
+    if (!auto) {
+      const unanswered = questions.filter((q) => !isAnswered(q, answers[q.id]));
+      if (unanswered.length > 0) {
+        toast.error(`Il reste ${unanswered.length} question(s) sans réponse`);
+        return;
+      }
+    }
+
+    const res = computeQuizResult(questions, answers, PASS_PERCENT);
+    setIsSubmitted(true);
+    setStoredResult(res);
+
+    if (res.passed) {
+      if (chapterIdResolved) {
+        markQuizCompleted(quiz.id, chapterIdResolved);
+        markStepDone(chapterIdResolved, `quiz:${quiz.id}`);
+      } else {
+        markQuizCompleted(quiz.id, (quiz as any).chapterId);
+      }
+    }
+
+    const startedAt = startedAtRef.current ?? Date.now();
+    const durationSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+
+    saveAttempt(quizId, {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      quizId,
+      createdAt: Date.now(),
+      durationSec,
+      totalScore: res.totalScore,
+      maxScore: res.maxScore,
+      percentage: res.percentage,
+      passed: res.passed,
+      answers,
+    });
+
+    saveQuizResult(quizId, res);
+
+    if (quiz.timeLimitSec) timer.pause();
+    clearQuizSession(quizId);
+
+    toast.success(auto ? "Temps écoulé — quiz soumis." : "Quiz soumis avec succès !");
+  };
 
   const timer = useQuizTimer({
     enabled: Boolean(timeLimitSec),
@@ -315,22 +357,22 @@ export default function QuizPage() {
     },
   });
 
-  // Start timer
   useEffect(() => {
-    if (!quiz?.timeLimitSec) return;
-    if (isSubmitted) return;
-    const s = loadQuizSession(quizId);
-    if (s?.running) timer.start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quiz?.timeLimitSec, quizId, isSubmitted]);
+  if (!quiz?.timeLimitSec) return;
+  if (isSubmitted) return;
 
-  // Persist answers
+  const s = loadQuizSession(quizId);
+
+  if (s?.running || fresh) {
+    timer.start();
+  }
+}, [quiz?.timeLimitSec, quizId, isSubmitted, fresh]);
+
   useEffect(() => {
     if (isSubmitted) return;
     saveQuizAnswers(quizId, answers);
   }, [quizId, answers, isSubmitted]);
 
-  // Persist navigation index
   useEffect(() => {
     if (!quiz) return;
     if (isSubmitted) return;
@@ -346,6 +388,69 @@ export default function QuizPage() {
       optionsOrder: s?.optionsOrder,
     });
   }, [currentQuestionIndex, quiz, quizId, isSubmitted, timer.remaining, timer.running]);
+
+  useEffect(() => {
+    if (!quiz) return;
+    if (!isSubmitted) return;
+
+    const saved = loadQuizResult(quizId) as StoredQuizResult | null;
+    if (!saved?.passed) return;
+    if (!chapterIdResolved) return;
+
+    markStepDone(chapterIdResolved, `quiz:${quiz.id}`);
+    markQuizCompleted(quiz.id, chapterIdResolved);
+  }, [quiz, quizId, isSubmitted, chapterIdResolved]);
+
+  const handleAnswerChange = (value: any) => {
+    const currentQuestion = questions[currentQuestionIndex];
+    if (!currentQuestion) return;
+
+    setAnswers((prev) => ({
+      ...prev,
+      [currentQuestion.id]: value,
+    }));
+  };
+
+  const handleNext = () => {
+    if (currentQuestionIndex < totalQuestions - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  const handleRetake = () => {
+    if (!quiz) return;
+
+    hardReset();
+
+    const built = buildSessionFromQuiz(quiz);
+    setSessionQuestions(built.questions);
+
+    const startedAt = Date.now();
+    startedAtRef.current = startedAt;
+
+    saveQuizSession(quizId, {
+      quizId,
+      startedAt,
+      remainingSec: quiz.timeLimitSec ? quiz.timeLimitSec : 0,
+      running: Boolean(quiz.timeLimitSec),
+      currentIndex: 0,
+      questionOrder: built.questionOrder,
+      optionsOrder: built.optionsOrder,
+    });
+
+    if (quiz.timeLimitSec) {
+      timer.reset(quiz.timeLimitSec);
+      timer.start();
+    }
+
+    toast.success("Nouvelle tentative prête ✅");
+  };
 
   if (isLoading) {
     return (
@@ -379,135 +484,19 @@ export default function QuizPage() {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
-  const progressPercentage = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+  const progressPercentage = totalQuestions > 0
+    ? ((currentQuestionIndex + 1) / totalQuestions) * 100
+    : 0;
 
-  const handleAnswerChange = (value: any) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion.id]: value,
-    }));
-  };
-
-  const handleNext = () => {
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };
-
-  const handleSubmit = (auto = false) => {
-    if (!auto) {
-      const unanswered = questions.filter((q) => !isAnswered(q, answers[q.id]));
-      if (unanswered.length > 0) {
-        toast.error(`Il reste ${unanswered.length} question(s) sans réponse`);
-        return;
-      }
-    }
-
-    const res = computeQuizResult(questions, answers, PASS_PERCENT);
-    setIsSubmitted(true);
-    setStoredResult(res);
-
-    // ✅ progression : chapitre validé si réussi
-    if (res.passed) {
-  const chapterIdResolved = resolveChapterId(quiz, quizId);
-
-  // ✅ Progress globale (ton système /lib/progress)
-  if (chapterIdResolved) {
-    markQuizCompleted(quiz.id, chapterIdResolved);
-  } else {
-    // fallback si vraiment rien
-    markQuizCompleted(quiz.id, (quiz as any).chapterId);
-  }
-
-  // ✅ Progress Study Steps (chapitre -> étape quiz validée)
-  if (chapterIdResolved) {
-    markStepDone(chapterIdResolved, `quiz:${quiz.id}`);
-  }
-}
-
-    // ✅ stats locales
-    const startedAt = startedAtRef.current ?? Date.now();
-    const durationSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-    saveAttempt(quizId, {
-      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      quizId,
-      createdAt: Date.now(),
-      durationSec,
-      totalScore: res.totalScore,
-      maxScore: res.maxScore,
-      percentage: res.percentage,
-      passed: res.passed,
-      answers,
-    });
-
-    saveQuizResult(quizId, res);
-
-    if (quiz.timeLimitSec) timer.pause();
-    clearQuizSession(quizId);
-
-    toast.success(auto ? "Temps écoulé — quiz soumis." : "Quiz soumis avec succès !");
-  };
-
-  const handleRetake = () => {
-    hardReset();
-
-    // rebuild order
-    const built = buildSessionFromQuiz(quiz);
-    setSessionQuestions(built.questions);
-
-    const startedAt = Date.now();
-    startedAtRef.current = startedAt;
-
-    saveQuizSession(quizId, {
-      quizId,
-      startedAt,
-      remainingSec: quiz.timeLimitSec ? quiz.timeLimitSec : 0,
-      running: Boolean(quiz.timeLimitSec),
-      currentIndex: 0,
-      questionOrder: built.questionOrder,
-      optionsOrder: built.optionsOrder,
-    });
-
-    if (quiz.timeLimitSec) {
-      timer.reset(quiz.timeLimitSec);
-      timer.start();
-    }
-
-    // ✅ optionnel : rester sur /quiz/[id] sans changer de route
-    toast.success("Nouvelle tentative prête ✅");
-  };
-
-  // RESULT VIEW
   if (isSubmitted) {
-    const res = storedResult ?? (loadQuizResult(quizId) as StoredQuizResult | null)
-      ?? computeQuizResult(questions, answers, PASS_PERCENT);
+    const res =
+      storedResult ??
+      ((loadQuizResult(quizId) as StoredQuizResult | null) ??
+        computeQuizResult(questions, answers, PASS_PERCENT));
 
     const scorePercentage = res.percentage;
     const passed = res.passed;
-
-    const chapterIdResolved = resolveChapterId(quiz, quizId);
-
-    useEffect(() => {
-  if (!quiz) return;
-
-  const saved = loadQuizResult(quizId) as StoredQuizResult | null;
-  if (!saved?.passed) return;
-
-  const chapterIdResolved = resolveChapterId(quiz, quizId);
-  if (!chapterIdResolved) return;
-
-  // ✅ idempotent : marquer "quiz:<id>" done (si déjà fait, aucun souci)
-  markStepDone(chapterIdResolved, `quiz:${quiz.id}`);
-
-  // ✅ progress globale aussi
-  markQuizCompleted(quiz.id, chapterIdResolved);
-}, [quiz, quizId]);
+    const isPerfect = Math.round(res.percentage) === 100;
 
     const goBackToChapter = () => {
       if (!chapterIdResolved) {
@@ -516,8 +505,6 @@ export default function QuizPage() {
       }
       router.push(`/chapters/${chapterIdResolved}?tab=quiz`);
     };
-
-    const isPerfect = Math.round(res.percentage) === 100;
 
     return (
       <div className="min-h-screen bg-background">
@@ -550,9 +537,7 @@ export default function QuizPage() {
 
               <CardContent className="space-y-6">
                 <div>
-                  <div className="text-5xl font-bold mb-2">
-                    {scorePercentage.toFixed(0)}%
-                  </div>
+                  <div className="text-5xl font-bold mb-2">{scorePercentage.toFixed(0)}%</div>
                   <p className="text-muted-foreground">
                     {res.totalScore} points sur {res.maxScore}
                   </p>
@@ -560,11 +545,14 @@ export default function QuizPage() {
 
                 <div className="space-y-3">
                   {questions.map((question) => {
-                    const userAnswer = (res as any)?.answers?.[question.id] ?? answers[question.id];
+                    const userAnswer =
+                      (res as any)?.answers?.[question.id] ?? answers[question.id];
                     const correctAnswer = question.correctAnswer;
 
                     const d = res.details?.find((x: any) => x.questionId === question.id);
-                    const isCorrect = d ? Boolean(d.isCorrect) : String(userAnswer) === String(correctAnswer);
+                    const isCorrect = d
+                      ? Boolean(d.isCorrect)
+                      : String(userAnswer) === String(correctAnswer);
 
                     return (
                       <div
@@ -582,9 +570,7 @@ export default function QuizPage() {
                             <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
                           )}
                           <div className="flex-1 text-left">
-                            <p className="font-medium text-sm mb-1">
-                              {question.question}
-                            </p>
+                            <p className="font-medium text-sm mb-1">{question.question}</p>
 
                             {!isCorrect ? (
                               <p className="text-xs text-muted-foreground">
@@ -605,7 +591,6 @@ export default function QuizPage() {
                   })}
                 </div>
 
-                {/* ✅ actions clean (pas de doublon, pas de refaire si 100%) */}
                 <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
                   {!isPerfect ? (
                     <Button variant="outline" onClick={handleRetake}>
@@ -614,7 +599,10 @@ export default function QuizPage() {
                     </Button>
                   ) : null}
 
-                  <Button className="bg-white text-black hover:bg-white/90" onClick={goBackToChapter}>
+                  <Button
+                    className="bg-white text-black hover:bg-white/90"
+                    onClick={goBackToChapter}
+                  >
                     Retour au chapitre
                   </Button>
                 </div>
@@ -626,7 +614,6 @@ export default function QuizPage() {
     );
   }
 
-  // QUIZ VIEW
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
@@ -657,6 +644,7 @@ export default function QuizPage() {
                 </span>
               </div>
             </div>
+
             <Progress value={progressPercentage} />
           </div>
 
@@ -674,109 +662,133 @@ export default function QuizPage() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* SINGLE CHOICE */}
-                  {currentQuestion.type === "single_choice" && currentQuestion.options ? (
-                    <RadioGroup
-                      value={String(answers[currentQuestion.id] ?? "")}
-                      onValueChange={handleAnswerChange}
-                    >
-                      {currentQuestion.options.map((option, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center space-x-3 p-4 rounded-lg border hover:border-primary transition-colors cursor-pointer"
-                        >
-                          <RadioGroupItem value={option} id={`option-${index}`} />
-                          <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                            {option}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  ) : null}
+  {(currentQuestion as any).katex || (currentQuestion as any).latex ? (
+    <div className="rounded-lg border bg-muted/40 p-4 overflow-x-auto">
+      <div className="text-sm text-muted-foreground mb-2">Formule</div>
+      <LatexBlock value={String((currentQuestion as any).katex ?? (currentQuestion as any).latex)} />
+    </div>
+  ) : null}
 
-                  {/* MULTIPLE CHOICE */}
-                  {currentQuestion.type === "multiple_choice" && currentQuestion.options ? (
-                    <div className="space-y-3">
-                      {currentQuestion.options.map((option, index) => {
-                        const arr = Array.isArray(answers[currentQuestion.id])
-                          ? (answers[currentQuestion.id] as string[])
-                          : [];
-                        const checked = arr.includes(option);
+  {/* SINGLE CHOICE */}
+{currentQuestion.type === "single_choice" ? (
+  <RadioGroup
+    value={String(answers[currentQuestion.id] ?? "")}
+    onValueChange={handleAnswerChange}
+    className="space-y-3"
+  >
+    {(currentQuestion.options ?? []).map((option, index) => {
+      const checked = String(answers[currentQuestion.id] ?? "") === option;
 
-                        return (
-                          <label
-                            key={index}
-                            className="flex items-center space-x-3 p-4 rounded-lg border hover:border-primary transition-colors cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => {
-                                if (checked) handleAnswerChange(arr.filter((x) => x !== option));
-                                else handleAnswerChange([...arr, option]);
-                              }}
-                            />
-                            <span className="flex-1 cursor-pointer text-sm">{option}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : null}
+      return (
+        <label
+          key={index}
+          htmlFor={`option-${index}`}
+          className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
+            checked
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50 hover:bg-muted/40"
+          }`}
+          onClick={() => handleAnswerChange(option)}
+        >
+          <RadioGroupItem value={option} id={`option-${index}`} />
 
-                  {/* TRUE / FALSE */}
-                  {currentQuestion.type === "true_false" ? (
-                    <RadioGroup
-                      value={String(answers[currentQuestion.id] ?? "")}
-                      onValueChange={handleAnswerChange}
-                    >
-                      {["true", "false"].map((v, index) => (
-                        <div
-                          key={v}
-                          className="flex items-center space-x-3 p-4 rounded-lg border hover:border-primary transition-colors cursor-pointer"
-                        >
-                          <RadioGroupItem value={v} id={`tf-${index}`} />
-                          <Label htmlFor={`tf-${index}`} className="flex-1 cursor-pointer">
-                            {v === "true" ? "Vrai" : "Faux"}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  ) : null}
+          <span className="flex-1 text-sm sm:text-base">
+            <LatexInline value={String(option)} />
+          </span>
+        </label>
+      );
+    })}
+  </RadioGroup>
+) : null}
 
-                  {/* NUMERIC */}
-                  {currentQuestion.type === "numeric" ? (
-                    <div>
-                      <Label htmlFor="numeric-answer" className="mb-2 block">
-                        Votre réponse :
-                      </Label>
-                      <Input
-                        id="numeric-answer"
-                        type="number"
-                        placeholder="Entrez votre réponse"
-                        value={normalizeAnswer(answers[currentQuestion.id], currentQuestion)}
-                        onChange={(e) => handleAnswerChange(e.target.value)}
-                        className="text-lg"
-                      />
-                    </div>
-                  ) : null}
+{/* MULTIPLE CHOICE */}
+{currentQuestion.type === "multiple_choice" ? (
+  <div className="space-y-3">
+    {(currentQuestion.options ?? []).map((option, index) => {
+      const arr = Array.isArray(answers[currentQuestion.id])
+        ? (answers[currentQuestion.id] as string[])
+        : [];
 
-                  {/* TEXT */}
-                  {currentQuestion.type === "text" ? (
-                    <div>
-                      <Label htmlFor="text-answer" className="mb-2 block">
-                        Votre réponse :
-                      </Label>
-                      <Input
-                        id="text-answer"
-                        type="text"
-                        placeholder="Entrez votre réponse"
-                        value={normalizeAnswer(answers[currentQuestion.id], currentQuestion)}
-                        onChange={(e) => handleAnswerChange(e.target.value)}
-                        className="text-lg"
-                      />
-                    </div>
-                  ) : null}
-                </CardContent>
+      const checked = arr.includes(option);
+
+      return (
+        <label
+          key={index}
+          className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
+            checked
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50 hover:bg-muted/40"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => {
+              if (checked) {
+                handleAnswerChange(arr.filter((x) => x !== option));
+              } else {
+                handleAnswerChange([...arr, option]);
+              }
+            }}
+            className="h-4 w-4"
+          />
+
+          <span className="flex-1 text-sm sm:text-base">
+            <LatexInline value={String(option)} />
+          </span>
+        </label>
+      );
+    })}
+  </div>
+) : null}
+
+{/* TRUE / FALSE */}
+{currentQuestion.type === "true_false" ? (
+  <RadioGroup
+    value={String(answers[currentQuestion.id] ?? "")}
+    onValueChange={handleAnswerChange}
+    className="space-y-3"
+  >
+    {["true", "false"].map((v, index) => {
+      const checked = String(answers[currentQuestion.id] ?? "") === v;
+
+      return (
+        <label
+          key={v}
+          htmlFor={`tf-${index}`}
+          className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
+            checked
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50 hover:bg-muted/40"
+          }`}
+          onClick={() => handleAnswerChange(v)}
+        >
+          <RadioGroupItem value={v} id={`tf-${index}`} />
+
+          <span className="flex-1 text-sm sm:text-base">
+            {v === "true" ? "Vrai" : "Faux"}
+          </span>
+        </label>
+      );
+    })}
+  </RadioGroup>
+) : null}
+  {currentQuestion.type === "text" ? (
+    <div>
+      <Label htmlFor="text-answer" className="mb-2 block">
+        Votre réponse :
+      </Label>
+      <Input
+        id="text-answer"
+        type="text"
+        placeholder="Entrez votre réponse"
+        value={normalizeAnswer(answers[currentQuestion.id], currentQuestion)}
+        onChange={(e) => handleAnswerChange(e.target.value)}
+        className="text-lg"
+      />
+    </div>
+  ) : null}
+</CardContent>
               </Card>
             </motion.div>
           </AnimatePresence>

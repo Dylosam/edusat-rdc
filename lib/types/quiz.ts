@@ -12,12 +12,11 @@ export type QuizQuestion = {
   type: "single_choice" | "multiple_choice" | "true_false" | "numeric" | "text";
   question: string;
   options?: string[];
-  correctAnswer: any;
+  correctAnswer: string | string[];
   explanation?: string;
   points?: number;
-
-  // ✅ NEW (optionnel): question -> leçon à réviser
   lessonId?: string;
+  katex?: string;
 };
 
 // lib/types/quiz.ts

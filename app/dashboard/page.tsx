@@ -81,8 +81,8 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary sm:h-12 sm:w-12" />
       </div>
     );
   }
@@ -101,14 +101,14 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.45 }}
         >
-          <div className="mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2 font-serif">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="mb-1 text-3xl font-bold font-serif leading-tight sm:mb-2 sm:text-4xl">
               Bonjour, {user?.name?.split(' ')[0]} !
             </h1>
             <p className="text-muted-foreground">
@@ -116,52 +116,64 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Progression globale</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+            <Card className="rounded-2xl">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="pr-2 text-sm font-medium leading-snug">
+                  Progression globale
+                </CardTitle>
+                <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{Math.round(totalProgress)}%</div>
-                <Progress value={totalProgress} className="mt-2" />
+              <CardContent className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
+                <div className="text-2xl font-bold sm:text-3xl">
+                  {Math.round(totalProgress)}%
+                </div>
+                <Progress value={totalProgress} className="mt-2 h-2" />
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Temps étudié</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+            <Card className="rounded-2xl">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="pr-2 text-sm font-medium leading-snug">
+                  Temps étudié
+                </CardTitle>
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
+                <div className="text-2xl font-bold sm:text-3xl">
                   {hoursStudied}h {minutesStudied}m
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Ce mois-ci</p>
+                <p className="mt-1 text-xs text-muted-foreground">Ce mois-ci</p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Matières actives</CardTitle>
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <Card className="rounded-2xl">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="pr-2 text-sm font-medium leading-snug">
+                  Matières actives
+                </CardTitle>
+                <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{subjects.length}</div>
-                <p className="text-xs text-muted-foreground mt-1">Disponibles</p>
+              <CardContent className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
+                <div className="text-2xl font-bold sm:text-3xl">{subjects.length}</div>
+                <p className="mt-1 text-xs text-muted-foreground">Disponibles</p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Abonnement</CardTitle>
-                <Trophy className="h-4 w-4 text-muted-foreground" />
+            <Card className="rounded-2xl">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="pr-2 text-sm font-medium leading-snug">
+                  Abonnement
+                </CardTitle>
+                <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold capitalize">{user?.subscription}</div>
+              <CardContent className="px-4 pb-4 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
+                <div className="text-2xl font-bold capitalize sm:text-3xl">
+                  {user?.subscription}
+                </div>
                 {user?.subscription === 'free' && (
                   <Link href="/subscription">
-                    <Button variant="link" className="p-0 h-auto text-xs mt-1">
+                    <Button variant="link" className="mt-1 h-auto p-0 text-xs">
                       Passer à Premium
                     </Button>
                   </Link>
@@ -170,17 +182,17 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold font-serif">Vos matières</h2>
-            <Link href="/subjects">
-              <Button variant="ghost" size="sm">
+            <Link href="/subjects" className="w-full sm:w-auto">
+              <Button variant="ghost" size="sm" className="w-full justify-center sm:w-auto">
                 Voir tout
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
             {subjects.map((subject, index) => {
               const IconComponent = iconsMap[subject.icon] ?? BookOpen;
               const isPremium = index > 5 && user?.subscription === 'free';
@@ -188,16 +200,16 @@ export default function DashboardPage() {
               return (
                 <motion.div
                   key={subject.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={{ opacity: 0, scale: 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                 >
                   <Link href={isPremium ? '/subscription' : `/subjects/${subject.slug}`}>
-                    <Card className="group hover:shadow-lg transition-all hover:border-primary/50 relative overflow-hidden">
+                    <Card className="group relative overflow-hidden rounded-2xl transition-all hover:border-primary/50 hover:shadow-lg">
                       {isPremium && (
-                        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
                           <div className="text-center">
-                            <Lock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <Lock className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
                             <Badge variant="secondary">Premium</Badge>
                           </div>
                         </div>
@@ -207,27 +219,30 @@ export default function DashboardPage() {
                         className={`absolute inset-0 opacity-5 bg-gradient-to-br ${subject.color}`}
                       />
 
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <IconComponent className="h-8 w-8 text-primary" />
-                          <Badge variant="secondary">
+                      <CardHeader className="relative z-[1] p-4 sm:p-5 lg:p-6">
+                        <div className="flex items-start justify-between gap-3">
+                          <IconComponent className="h-7 w-7 shrink-0 text-primary sm:h-8 sm:w-8" />
+                          <Badge variant="secondary" className="shrink-0">
                             {subject.chaptersCount} chapitres
                           </Badge>
                         </div>
 
-                        <CardTitle className="text-xl mt-4">{subject.name}</CardTitle>
+                        <CardTitle className="mt-3 text-lg sm:mt-4 sm:text-xl">
+                          {subject.name}
+                        </CardTitle>
+
                         <p className="text-sm text-muted-foreground">
                           {subject.description}
                         </p>
                       </CardHeader>
 
-                      <CardContent>
+                      <CardContent className="relative z-[1] p-4 pt-0 sm:p-5 sm:pt-0 lg:p-6 lg:pt-0">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Progression</span>
                             <span className="font-semibold">{subject.progress}%</span>
                           </div>
-                          <Progress value={subject.progress} />
+                          <Progress value={subject.progress} className="h-2" />
                         </div>
                       </CardContent>
                     </Card>
@@ -242,20 +257,20 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="mt-12"
+              className="mt-8 sm:mt-10 lg:mt-12"
             >
-              <Card className="bg-gradient-to-r from-blue-600/10 to-cyan-600/10 border-blue-600/20">
-                <CardContent className="p-8 text-center">
-                  <Trophy className="h-12 w-12 mx-auto mb-4 text-blue-600" />
-                  <h3 className="text-2xl font-bold mb-2 font-serif">
+              <Card className="rounded-2xl border-blue-600/20 bg-gradient-to-r from-blue-600/10 to-cyan-600/10">
+                <CardContent className="p-5 text-center sm:p-6 lg:p-8">
+                  <Trophy className="mx-auto mb-4 h-10 w-10 text-blue-600 sm:h-12 sm:w-12" />
+                  <h3 className="mb-2 text-xl font-bold font-serif sm:text-2xl">
                     Passez à Premium
                   </h3>
-                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  <p className="mx-auto mb-5 max-w-md text-sm text-muted-foreground sm:mb-6 sm:text-base">
                     Débloquez toutes les matières, accédez à des contenus exclusifs et
                     bénéficiez d&apos;un suivi personnalisé
                   </p>
                   <Link href="/subscription">
-                    <Button size="lg">
+                    <Button size="lg" className="w-full sm:w-auto">
                       Découvrir Premium
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
