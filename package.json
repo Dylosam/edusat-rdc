@@ -54,6 +54,7 @@
     "eslint": "8.49.0",
     "eslint-config-next": "13.5.1",
     "framer-motion": "^12.29.0",
+    "html2pdf.js": "^0.14.0",
     "input-otp": "^1.2.4",
     "katex": "^0.16.27",
     "lucide-react": "^0.446.0",

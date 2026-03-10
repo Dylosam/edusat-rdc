@@ -24,10 +24,7 @@ import {
 } from 'lucide-react';
 
 import { getSubjectBySlug, getChaptersBySubject } from '@/lib/mock-api/data';
-
-// ✅ source des résultats quiz (progress store)
 import { readProgressStore } from '@/lib/progress/index';
-// ✅ relier chapitre -> quiz
 import { findQuizByChapterId } from '@/lib/study/quiz-link';
 
 type SubjectVM = {
@@ -111,38 +108,108 @@ function statusIconFromStrength(s: Strength) {
   }
 }
 
+function SubjectDetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <DashboardNav />
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6 h-10 w-28 rounded bg-muted animate-pulse" />
+
+        <div className="mb-8 space-y-4">
+          <div className="h-10 w-72 rounded bg-muted animate-pulse" />
+          <div className="h-5 w-full max-w-2xl rounded bg-muted animate-pulse" />
+          <div className="grid gap-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-xl border bg-card p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <div className="h-4 w-24 rounded bg-muted animate-pulse" />
+                    <div className="h-8 w-16 rounded bg-muted animate-pulse" />
+                  </div>
+                  <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-6 h-8 w-40 rounded bg-muted animate-pulse" />
+
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="rounded-xl border bg-card p-6 space-y-4">
+              <div className="flex gap-4">
+                <div className="h-5 w-5 rounded-full bg-muted animate-pulse mt-1" />
+                <div className="flex-1 space-y-3">
+                  <div className="h-6 w-72 rounded bg-muted animate-pulse" />
+                  <div className="flex flex-wrap gap-2">
+                    <div className="h-6 w-24 rounded-full bg-muted animate-pulse" />
+                    <div className="h-6 w-28 rounded-full bg-muted animate-pulse" />
+                    <div className="h-6 w-32 rounded-full bg-muted animate-pulse" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <div className="h-9 w-32 rounded-md bg-muted animate-pulse" />
+                <div className="h-9 w-28 rounded-md bg-muted animate-pulse" />
+                <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function SubjectDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const slug = params?.slug as string;
+  const slug = typeof params?.slug === 'string' ? params.slug : '';
 
-  // ✅ on stocke le RAW (mock-api) pour éviter le conflit de types
   const [subjectRaw, setSubjectRaw] = useState<any>(null);
   const [chaptersRaw, setChaptersRaw] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // ✅ tri faibles d’abord (par défaut)
   const [weakFirst, setWeakFirst] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const loadData = async () => {
-      const subjectData = await getSubjectBySlug(slug);
-      if (!subjectData) {
+      if (!slug) {
         router.push('/subjects');
         return;
       }
-      setSubjectRaw(subjectData);
 
-      const chaptersData = await getChaptersBySubject((subjectData as any).id);
-      setChaptersRaw(chaptersData ?? []);
+      try {
+        const subjectData = await getSubjectBySlug(slug);
 
-      setIsLoading(false);
+        if (!mounted) return;
+
+        if (!subjectData) {
+          router.push('/subjects');
+          return;
+        }
+
+        setSubjectRaw(subjectData);
+
+        const chaptersData = await getChaptersBySubject(String(subjectData.id));
+
+        if (!mounted) return;
+        setChaptersRaw(Array.isArray(chaptersData) ? chaptersData : []);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
     };
 
     loadData();
+
+    return () => {
+      mounted = false;
+    };
   }, [slug, router]);
 
-  // ✅ adapter Subject -> SubjectVM (UI stable)
   const subject: SubjectVM | null = useMemo(() => {
     if (!subjectRaw) return null;
 
@@ -154,7 +221,6 @@ export default function SubjectDetailPage() {
     };
   }, [subjectRaw]);
 
-  // ✅ adapter Chapter -> ChapterVM (UI stable)
   const chapters: ChapterVM[] = useMemo(() => {
     return (chaptersRaw ?? []).map((c: any, idx: number) => ({
       id: String(c.id),
@@ -162,23 +228,23 @@ export default function SubjectDetailPage() {
       title: String(c.title ?? c.name ?? `Chapitre ${idx + 1}`),
       estimatedTime: Number(c.estimatedTime ?? c.minutes ?? c.duration ?? 10),
       hasExercises: Boolean(c.hasExercises ?? c.hasExercise ?? c.exercises?.length),
-      hasQuiz: Boolean(c.hasQuiz ?? c.quizId ?? c.quiz?.id ?? findQuizByChapterId(String(c.id))?.id),
+      hasQuiz: Boolean(
+        c.hasQuiz ?? c.quizId ?? c.quiz?.id ?? findQuizByChapterId(String(c.id))?.id
+      ),
     }));
   }, [chaptersRaw]);
 
-  // ✅ lecture store progress (quiz results)
   const quizResultsByQuizId = useMemo(() => {
     const store = readProgressStore();
     return store.quizResults ?? {};
   }, []);
 
-  // ✅ enrichir chaque chapitre avec score quiz (si existe)
   const enriched = useMemo(() => {
     return chapters.map((chapter) => {
       const quiz = findQuizByChapterId(chapter.id);
       const quizId = quiz?.id ? String(quiz.id) : null;
-
       const rawResult = quizId ? (quizResultsByQuizId as any)[quizId] : null;
+
       const percent =
         rawResult && typeof rawResult.percentage === 'number'
           ? Math.round(rawResult.percentage)
@@ -197,10 +263,8 @@ export default function SubjectDetailPage() {
     });
   }, [chapters, quizResultsByQuizId]);
 
-  // ✅ stats sujet : basées sur quiz (pas de lock)
   const stats = useMemo(() => {
     const total = enriched.length;
-
     const evaluated = enriched.filter((x) => x.percent !== null).length;
     const weak = enriched.filter((x) => x.strength === 'weak').length;
     const ok = enriched.filter((x) => x.strength === 'ok').length;
@@ -250,11 +314,7 @@ export default function SubjectDetailPage() {
   }, [enriched, weakFirst]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <SubjectDetailSkeleton />;
   }
 
   if (!subject) return null;
@@ -265,9 +325,9 @@ export default function SubjectDetailPage() {
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.35 }}
         >
           <Button variant="ghost" onClick={() => router.back()} className="mb-6">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -278,6 +338,7 @@ export default function SubjectDetailPage() {
             <h1 className="text-3xl sm:text-4xl font-bold mb-4 font-serif">
               {subject.name}
             </h1>
+
             {subject.description ? (
               <p className="text-lg text-muted-foreground mb-6">{subject.description}</p>
             ) : null}
@@ -312,7 +373,7 @@ export default function SubjectDetailPage() {
 
               <Card>
                 <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Indice global</p>
                       <p className="text-2xl font-bold">{stats.avg}%</p>
@@ -320,8 +381,8 @@ export default function SubjectDetailPage() {
                         Basé sur les derniers scores quiz
                       </p>
                     </div>
-                    <div className="h-8 w-8">
-                      <Progress value={stats.avg} className="h-8" />
+                    <div className="w-16">
+                      <Progress value={stats.avg} />
                     </div>
                   </div>
                 </CardContent>
@@ -360,15 +421,16 @@ export default function SubjectDetailPage() {
             {sorted.map(({ chapter, percent, strength }, index) => (
               <motion.div
                 key={chapter.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.03 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, delay: index * 0.02 }}
               >
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start space-x-4 flex-1">
                         {statusIconFromStrength(strength)}
+
                         <div className="flex-1">
                           <CardTitle className="text-lg mb-2">
                             Chapitre {chapter.order}: {chapter.title}

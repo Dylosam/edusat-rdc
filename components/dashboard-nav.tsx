@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -25,23 +25,36 @@ import {
   Wrench,
   Menu,
   X,
+  FileText,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { mockGetCurrentUser, mockLogout } from '@/lib/mock-api/auth';
-import { User as UserType } from '@/lib/types';
+import type { User as UserType } from '@/lib/types';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+
+  const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<UserType | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    mockGetCurrentUser().then(setUser);
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    mockGetCurrentUser().then((data) => {
+      setUser(data as UserType | null);
+    });
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const handleLogout = async () => {
     await mockLogout();
@@ -57,6 +70,16 @@ export function DashboardNav() {
     { href: '/calendar', label: 'Calendrier' },
     { href: '/profile', label: 'Profil' },
   ];
+
+  const toolsItems = [
+    { href: '/outils/horaire', label: 'Horaire de cours' },
+    { href: '/outils/tableau-periodique', label: 'Tableau périodique' },
+    { href: '/outils/tableau-statistique', label: 'Tableau statistique' },
+    { href: '/outils/document-scolaire', label: 'Document scolaire' },
+  ];
+
+  const currentTheme = resolvedTheme || theme;
+  const isDark = currentTheme === 'dark';
 
   return (
     <>
@@ -84,17 +107,20 @@ export function DashboardNav() {
               </Link>
 
               <nav className="hidden md:flex items-center space-x-6">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`text-sm font-medium transition-colors hover:text-primary ${
-                      pathname === item.href ? 'text-primary' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        isActive ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </nav>
             </div>
 
@@ -102,34 +128,45 @@ export function DashboardNav() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                onClick={() => {
+                  if (!mounted) return;
+                  setTheme(isDark ? 'light' : 'dark');
+                }}
                 aria-label="Changer le thème"
               >
-                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">Toggle theme</span>
+                {mounted ? (
+                  isDark ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )
+                ) : (
+                  <div className="h-5 w-5" />
+                )}
+                <span className="sr-only">Changer le thème</span>
               </Button>
 
               <DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <Button
-      variant="ghost"
-      size="icon"
-      className="hidden md:flex rounded-full"
-    >
-      <User className="h-5 w-5" />
-    </Button>
-  </DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hidden rounded-full md:flex"
+                    aria-label="Ouvrir le menu utilisateur"
+                  >
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
 
-                <DropdownMenuContent
-                  align="end"
-                  sideOffset={8}
-                  className="w-56"
-                >
+                <DropdownMenuContent align="end" sideOffset={8} className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{user?.name}</p>
-                      <p className="text-xs text-muted-foreground">{user?.phone}</p>
+                      <p className="text-sm font-medium">
+                        {user?.name || 'Utilisateur'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {user?.phone || 'Compte EduStat'}
+                      </p>
                     </div>
                   </DropdownMenuLabel>
 
@@ -155,18 +192,27 @@ export function DashboardNav() {
                       Outils
                     </DropdownMenuSubTrigger>
 
-                    <DropdownMenuSubContent className="w-52">
+                    <DropdownMenuSubContent className="w-56">
                       <DropdownMenuItem asChild>
                         <Link href="/outils/horaire">Horaire de cours</Link>
                       </DropdownMenuItem>
+
                       <DropdownMenuItem asChild>
                         <Link href="/outils/tableau-periodique">
                           Tableau périodique
                         </Link>
                       </DropdownMenuItem>
+
                       <DropdownMenuItem asChild>
                         <Link href="/outils/tableau-statistique">
                           Tableau statistique
+                        </Link>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem asChild>
+                        <Link href="/outils/document-scolaire">
+                          <FileText className="mr-2 h-4 w-4" />
+                          Document scolaire
                         </Link>
                       </DropdownMenuItem>
                     </DropdownMenuSubContent>
@@ -226,20 +272,23 @@ export function DashboardNav() {
 
               <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-y-auto px-3 py-4">
                 <nav className="flex flex-col gap-1">
-                  {navItems.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={closeMobileMenu}
-                      className={`rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
-                        pathname === item.href
-                          ? 'bg-muted text-primary'
-                          : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
+                  {navItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={closeMobileMenu}
+                        className={`rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-muted text-primary'
+                            : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
                 </nav>
 
                 <div className="mt-5 border-t border-border/40 pt-5">
@@ -262,29 +311,48 @@ export function DashboardNav() {
                   </p>
 
                   <div className="flex flex-col gap-1">
-                    <Link
-                      href="/outils/horaire"
-                      onClick={closeMobileMenu}
-                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
-                    >
-                      Horaire de cours
-                    </Link>
+                    {toolsItems.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={closeMobileMenu}
+                          className={`rounded-lg px-3 py-3 text-sm transition-colors ${
+                            isActive
+                              ? 'bg-muted text-primary'
+                              : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
+                          }`}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    <Link
-                      href="/outils/tableau-periodique"
-                      onClick={closeMobileMenu}
-                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
+                <div className="mt-5 border-t border-border/40 pt-5">
+                  <div className="flex items-center justify-between rounded-lg px-3 py-3">
+                    <span className="text-sm text-muted-foreground">Thème</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (!mounted) return;
+                        setTheme(isDark ? 'light' : 'dark');
+                      }}
+                      aria-label="Changer le thème"
                     >
-                      Tableau périodique
-                    </Link>
-
-                    <Link
-                      href="/outils/tableau-statistique"
-                      onClick={closeMobileMenu}
-                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
-                    >
-                      Tableau statistique
-                    </Link>
+                      {mounted ? (
+                        isDark ? (
+                          <Sun className="h-5 w-5" />
+                        ) : (
+                          <Moon className="h-5 w-5" />
+                        )
+                      ) : (
+                        <div className="h-5 w-5" />
+                      )}
+                    </Button>
                   </div>
                 </div>
 
