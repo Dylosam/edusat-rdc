@@ -3,7 +3,7 @@
 import { useState, useEffect, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -52,37 +52,56 @@ function normalizeSubject(subject: any): DashboardSubject {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
+
   const [user, setUser] = useState<User | null>(null);
   const [subjects, setSubjects] = useState<DashboardSubject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const loadData = async () => {
-      const currentUser = await mockGetCurrentUser();
+      try {
+        const currentUser = await mockGetCurrentUser();
 
-      if (!currentUser) {
-        router.push('/auth/login');
-        return;
+        if (!mounted) return;
+
+        if (!currentUser) {
+          router.push('/auth/login');
+          return;
+        }
+
+        setUser(currentUser);
+
+        const subjectsData = await getSubjects();
+
+        if (!mounted) return;
+
+        const normalizedSubjects = Array.isArray(subjectsData)
+          ? subjectsData.map(normalizeSubject)
+          : [];
+
+        setSubjects(normalizedSubjects);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-
-      setUser(currentUser);
-
-      const subjectsData = await getSubjects();
-      const normalizedSubjects = Array.isArray(subjectsData)
-        ? subjectsData.map(normalizeSubject)
-        : [];
-
-      setSubjects(normalizedSubjects);
-      setIsLoading(false);
     };
 
     loadData();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary sm:h-12 sm:w-12" />
+      <div className="min-h-screen bg-background">
+        <DashboardNav />
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary sm:h-12 sm:w-12" />
+        </div>
       </div>
     );
   }
@@ -96,6 +115,7 @@ export default function DashboardPage() {
   const minutesStudied = (user?.totalTimeStudied || 0) % 60;
 
   const iconsMap = LucideIcons as unknown as Record<string, IconComponentType>;
+  const firstName = user?.name?.split(' ')[0] ?? 'élève';
 
   return (
     <div className="min-h-screen bg-background">
@@ -103,13 +123,13 @@ export default function DashboardPage() {
 
       <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
+          transition={{ duration: 0.3 }}
         >
           <div className="mb-6 sm:mb-8">
             <h1 className="mb-1 text-3xl font-bold font-serif leading-tight sm:mb-2 sm:text-4xl">
-              Bonjour, {user?.name?.split(' ')[0]} !
+              Bonjour, {firstName} !
             </h1>
             <p className="text-muted-foreground">
               Niveau : <span className="font-semibold">{user?.level}</span>
@@ -172,7 +192,7 @@ export default function DashboardPage() {
                   {user?.subscription}
                 </div>
                 {user?.subscription === 'free' && (
-                  <Link href="/subscription">
+                  <Link prefetch href="/subscription">
                     <Button variant="link" className="mt-1 h-auto p-0 text-xs">
                       Passer à Premium
                     </Button>
@@ -184,7 +204,7 @@ export default function DashboardPage() {
 
           <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold font-serif">Vos matières</h2>
-            <Link href="/subjects" className="w-full sm:w-auto">
+            <Link prefetch href="/subjects" className="w-full sm:w-auto">
               <Button variant="ghost" size="sm" className="w-full justify-center sm:w-auto">
                 Voir tout
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -196,15 +216,19 @@ export default function DashboardPage() {
             {subjects.map((subject, index) => {
               const IconComponent = iconsMap[subject.icon] ?? BookOpen;
               const isPremium = index > 5 && user?.subscription === 'free';
+              const href =
+                isPremium || !subject.slug?.trim()
+                  ? '/subscription'
+                  : `/subjects/${subject.slug}`;
 
               return (
                 <motion.div
                   key={subject.id}
-                  initial={{ opacity: 0, scale: 0.97 }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  transition={{ duration: 0.18 }}
                 >
-                  <Link href={isPremium ? '/subscription' : `/subjects/${subject.slug}`}>
+                  <Link prefetch href={href}>
                     <Card className="group relative overflow-hidden rounded-2xl transition-all hover:border-primary/50 hover:shadow-lg">
                       {isPremium && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
@@ -232,7 +256,7 @@ export default function DashboardPage() {
                         </CardTitle>
 
                         <p className="text-sm text-muted-foreground">
-                          {subject.description}
+                          {subject.description || 'Commence cette matière et progresse chapitre par chapitre.'}
                         </p>
                       </CardHeader>
 
@@ -254,9 +278,9 @@ export default function DashboardPage() {
 
           {user?.subscription === 'free' && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
+              transition={{ duration: 0.3 }}
               className="mt-8 sm:mt-10 lg:mt-12"
             >
               <Card className="rounded-2xl border-blue-600/20 bg-gradient-to-r from-blue-600/10 to-cyan-600/10">
@@ -269,7 +293,7 @@ export default function DashboardPage() {
                     Débloquez toutes les matières, accédez à des contenus exclusifs et
                     bénéficiez d&apos;un suivi personnalisé
                   </p>
-                  <Link href="/subscription">
+                  <Link prefetch href="/subscription">
                     <Button size="lg" className="w-full sm:w-auto">
                       Découvrir Premium
                       <ArrowRight className="ml-2 h-5 w-5" />

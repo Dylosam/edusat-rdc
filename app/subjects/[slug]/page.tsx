@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -108,65 +108,11 @@ function statusIconFromStrength(s: Strength) {
   }
 }
 
-function SubjectDetailSkeleton() {
-  return (
-    <div className="min-h-screen bg-background">
-      <DashboardNav />
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 h-10 w-28 rounded bg-muted animate-pulse" />
-
-        <div className="mb-8 space-y-4">
-          <div className="h-10 w-72 rounded bg-muted animate-pulse" />
-          <div className="h-5 w-full max-w-2xl rounded bg-muted animate-pulse" />
-          <div className="grid gap-4 sm:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-xl border bg-card p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2">
-                    <div className="h-4 w-24 rounded bg-muted animate-pulse" />
-                    <div className="h-8 w-16 rounded bg-muted animate-pulse" />
-                  </div>
-                  <div className="h-8 w-8 rounded bg-muted animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-6 h-8 w-40 rounded bg-muted animate-pulse" />
-
-        <div className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="rounded-xl border bg-card p-6 space-y-4">
-              <div className="flex gap-4">
-                <div className="h-5 w-5 rounded-full bg-muted animate-pulse mt-1" />
-                <div className="flex-1 space-y-3">
-                  <div className="h-6 w-72 rounded bg-muted animate-pulse" />
-                  <div className="flex flex-wrap gap-2">
-                    <div className="h-6 w-24 rounded-full bg-muted animate-pulse" />
-                    <div className="h-6 w-28 rounded-full bg-muted animate-pulse" />
-                    <div className="h-6 w-32 rounded-full bg-muted animate-pulse" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <div className="h-9 w-32 rounded-md bg-muted animate-pulse" />
-                <div className="h-9 w-28 rounded-md bg-muted animate-pulse" />
-                <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </main>
-    </div>
-  );
-}
-
 export default function SubjectDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const slug = typeof params?.slug === 'string' ? params.slug : '';
+  const prefersReducedMotion = useReducedMotion();
+  const slug = params?.slug as string;
 
   const [subjectRaw, setSubjectRaw] = useState<any>(null);
   const [chaptersRaw, setChaptersRaw] = useState<any[]>([]);
@@ -177,11 +123,6 @@ export default function SubjectDetailPage() {
     let mounted = true;
 
     const loadData = async () => {
-      if (!slug) {
-        router.push('/subjects');
-        return;
-      }
-
       try {
         const subjectData = await getSubjectBySlug(slug);
 
@@ -194,10 +135,10 @@ export default function SubjectDetailPage() {
 
         setSubjectRaw(subjectData);
 
-        const chaptersData = await getChaptersBySubject(String(subjectData.id));
+        const chaptersData = await getChaptersBySubject((subjectData as any).id);
 
         if (!mounted) return;
-        setChaptersRaw(Array.isArray(chaptersData) ? chaptersData : []);
+        setChaptersRaw(chaptersData ?? []);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -228,9 +169,7 @@ export default function SubjectDetailPage() {
       title: String(c.title ?? c.name ?? `Chapitre ${idx + 1}`),
       estimatedTime: Number(c.estimatedTime ?? c.minutes ?? c.duration ?? 10),
       hasExercises: Boolean(c.hasExercises ?? c.hasExercise ?? c.exercises?.length),
-      hasQuiz: Boolean(
-        c.hasQuiz ?? c.quizId ?? c.quiz?.id ?? findQuizByChapterId(String(c.id))?.id
-      ),
+      hasQuiz: Boolean(c.hasQuiz ?? c.quizId ?? c.quiz?.id ?? findQuizByChapterId(String(c.id))?.id),
     }));
   }, [chaptersRaw]);
 
@@ -243,8 +182,8 @@ export default function SubjectDetailPage() {
     return chapters.map((chapter) => {
       const quiz = findQuizByChapterId(chapter.id);
       const quizId = quiz?.id ? String(quiz.id) : null;
-      const rawResult = quizId ? (quizResultsByQuizId as any)[quizId] : null;
 
+      const rawResult = quizId ? (quizResultsByQuizId as any)[quizId] : null;
       const percent =
         rawResult && typeof rawResult.percentage === 'number'
           ? Math.round(rawResult.percentage)
@@ -314,7 +253,14 @@ export default function SubjectDetailPage() {
   }, [enriched, weakFirst]);
 
   if (isLoading) {
-    return <SubjectDetailSkeleton />;
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardNav />
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+        </div>
+      </div>
+    );
   }
 
   if (!subject) return null;
@@ -323,27 +269,27 @@ export default function SubjectDetailPage() {
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
+          transition={{ duration: 0.3 }}
         >
-          <Button variant="ghost" onClick={() => router.back()} className="mb-6">
+          <Button variant="ghost" onClick={() => router.push('/subjects')} className="mb-6">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour
           </Button>
 
           <div className="mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold mb-4 font-serif">
+            <h1 className="mb-4 font-serif text-3xl font-bold sm:text-4xl">
               {subject.name}
             </h1>
 
             {subject.description ? (
-              <p className="text-lg text-muted-foreground mb-6">{subject.description}</p>
+              <p className="mb-6 text-lg text-muted-foreground">{subject.description}</p>
             ) : null}
 
-            <div className="grid gap-4 sm:grid-cols-3 mb-4">
+            <div className="mb-4 grid gap-4 sm:grid-cols-3">
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
@@ -381,8 +327,8 @@ export default function SubjectDetailPage() {
                         Basé sur les derniers scores quiz
                       </p>
                     </div>
-                    <div className="w-16">
-                      <Progress value={stats.avg} />
+                    <div className="w-20">
+                      <Progress value={stats.avg} className="h-3" />
                     </div>
                   </div>
                 </CardContent>
@@ -400,7 +346,7 @@ export default function SubjectDetailPage() {
                   size="sm"
                   onClick={() => setWeakFirst(true)}
                 >
-                  Faibles d’abord
+                  Faibles d&apos;abord
                 </Button>
                 <Button
                   variant={!weakFirst ? 'default' : 'outline'}
@@ -414,31 +360,31 @@ export default function SubjectDetailPage() {
           </div>
 
           <div className="mb-6">
-            <h2 className="text-2xl font-bold font-serif">Chapitres</h2>
+            <h2 className="font-serif text-2xl font-bold">Chapitres</h2>
           </div>
 
           <div className="space-y-4">
-            {sorted.map(({ chapter, percent, strength }, index) => (
+            {sorted.map(({ chapter, percent, strength }) => (
               <motion.div
                 key={chapter.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, delay: index * 0.02 }}
+                transition={{ duration: 0.18 }}
               >
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="transition-shadow hover:shadow-md">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start space-x-4 flex-1">
+                      <div className="flex flex-1 items-start space-x-4">
                         {statusIconFromStrength(strength)}
 
                         <div className="flex-1">
-                          <CardTitle className="text-lg mb-2">
+                          <CardTitle className="mb-2 text-lg">
                             Chapitre {chapter.order}: {chapter.title}
                           </CardTitle>
 
                           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                             <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-1" />
+                              <Clock className="mr-1 h-4 w-4" />
                               {chapter.estimatedTime} min
                             </div>
 
@@ -457,7 +403,7 @@ export default function SubjectDetailPage() {
 
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      <Link href={`/chapters/${chapter.id}`}>
+                      <Link prefetch href={`/chapters/${chapter.id}`}>
                         <Button variant="default" size="sm">
                           <FileText className="mr-2 h-4 w-4" />
                           Lire le cours
@@ -465,7 +411,7 @@ export default function SubjectDetailPage() {
                       </Link>
 
                       {chapter.hasExercises ? (
-                        <Link href={`/chapters/${chapter.id}?tab=exercises`}>
+                        <Link prefetch href={`/chapters/${chapter.id}?tab=exercises`}>
                           <Button variant="outline" size="sm">
                             <PenTool className="mr-2 h-4 w-4" />
                             Exercices
@@ -474,7 +420,7 @@ export default function SubjectDetailPage() {
                       ) : null}
 
                       {chapter.hasQuiz ? (
-                        <Link href={`/chapters/${chapter.id}?tab=quiz`}>
+                        <Link prefetch href={`/chapters/${chapter.id}?tab=quiz`}>
                           <Button variant="outline" size="sm">
                             <Brain className="mr-2 h-4 w-4" />
                             Quiz

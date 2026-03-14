@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,42 +78,54 @@ type LegendKey =
 
 const LEGEND: Record<
   LegendKey,
-  { label: string; dot: string; pill: string }
+  {
+    label: string;
+    dot: string;
+    pill: string;
+    pillLight: string;
+  }
 > = {
   proclamation: {
     label: "Proclamations",
     dot: "bg-pink-400",
     pill: "border-pink-400/25 bg-pink-400/10 text-pink-200",
+    pillLight: "border-pink-500/30 bg-pink-500/10 text-pink-700",
   },
   exams: {
     label: "Examens",
     dot: "bg-amber-400",
     pill: "border-amber-400/25 bg-amber-400/10 text-amber-200",
+    pillLight: "border-amber-500/30 bg-amber-500/10 text-amber-700",
   },
   vacances: {
     label: "Vacances",
     dot: "bg-sky-400",
     pill: "border-sky-400/25 bg-sky-400/10 text-sky-200",
+    pillLight: "border-sky-500/30 bg-sky-500/10 text-sky-700",
   },
   detente: {
     label: "Détente",
     dot: "bg-cyan-400",
     pill: "border-cyan-400/25 bg-cyan-400/10 text-cyan-200",
+    pillLight: "border-cyan-500/30 bg-cyan-500/10 text-cyan-700",
   },
   ferie: {
     label: "Jours fériés",
     dot: "bg-rose-400",
     pill: "border-rose-400/25 bg-rose-400/10 text-rose-200",
+    pillLight: "border-rose-500/30 bg-rose-500/10 text-rose-700",
   },
   deliberation: {
     label: "Délibération",
     dot: "bg-emerald-400",
     pill: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200",
+    pillLight: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
   },
   perso: {
     label: "Personnalisé",
     dot: "bg-purple-400",
     pill: "border-purple-400/25 bg-purple-400/10 text-purple-200",
+    pillLight: "border-purple-500/30 bg-purple-500/10 text-purple-700",
   },
 };
 
@@ -259,7 +271,9 @@ function DotRow({ types }: { types: LegendKey[] }) {
   Component
 --------------------------------------------- */
 export default function CalendarPage() {
+  const prefersReducedMotion = useReducedMotion();
   const [enter, setEnter] = useState(false);
+
   useEffect(() => {
     const raf = requestAnimationFrame(() => setEnter(true));
     return () => cancelAnimationFrame(raf);
@@ -389,11 +403,16 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
-      <main className={["mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8", pageEnter].join(" ")}>
+      <main
+        className={[
+          "mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8",
+          pageEnter,
+        ].join(" ")}
+      >
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.3 }}
         >
           <div className="mb-6 sm:mb-8">
             <h1 className="mb-2 text-3xl font-bold font-serif leading-tight sm:text-4xl">
@@ -480,6 +499,7 @@ export default function CalendarPage() {
 
                       const events = getEventsForDayYMD(ymd, OFFICIAL_EVENTS, custom.events);
                       const types = uniqueTypes(events);
+                      const firstCustom = events.find((e) => e.source === "custom");
 
                       return (
                         <button
@@ -515,9 +535,9 @@ export default function CalendarPage() {
 
                           <DotRow types={types} />
 
-                          {events[0] ? (
+                          {firstCustom ? (
                             <div className="mt-1 text-[10px] leading-4 text-muted-foreground line-clamp-2 sm:mt-2 sm:text-[11px]">
-                              {(events[0] as any).label || (events[0] as any).title}
+                              {firstCustom.title}
                             </div>
                           ) : (
                             <div className="mt-1 text-[10px] leading-4 text-muted-foreground/50 sm:mt-2 sm:text-[11px]">
@@ -534,18 +554,26 @@ export default function CalendarPage() {
               <Card className={cardGlass}>
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-semibold">Légende</div>
-                    <div className="text-xs text-muted-foreground">Codes couleur</div>
+                    <div className="text-foreground text-xl font-semibold sm:text-2xl">
+                      Légende
+                    </div>
+                    
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {Object.entries(LEGEND).map(([k, v]) => (
                       <span
                         key={k}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs sm:text-sm ${v.pill}`}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs sm:text-sm ${v.pill} dark:${v.pill}`}
+                        style={{
+                          color:
+                            document?.documentElement?.classList.contains("dark")
+                              ? undefined
+                              : undefined,
+                        }}
                       >
                         <span className={`h-2.5 w-2.5 rounded-full ${v.dot}`} />
-                        {v.label}
+                        <span className="dark:text-inherit text-foreground">{v.label}</span>
                       </span>
                     ))}
                   </div>
@@ -591,23 +619,31 @@ export default function CalendarPage() {
                       <div className="space-y-2">
                         {selectedDayEvents
                           .filter((e) => e.source === "official")
-                          .map((e, idx) => (
-                            <div
-                              key={`${(e as any).type}_${idx}_${(e as any).start}`}
-                              className={[
-                                "rounded-2xl border px-4 py-3",
-                                LEGEND[(e as any).type as LegendKey]?.pill ??
-                                  "border-border/70 bg-background/30 text-foreground",
-                              ].join(" ")}
-                            >
-                              <div className="text-sm font-semibold">{(e as any).label}</div>
-                              {(e as any).start !== (e as any).end ? (
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  {(e as any).start} → {(e as any).end}
+                          .map((e, idx) => {
+                            const type = (e as any).type as LegendKey;
+                            const lightStyle = LEGEND[type]?.pillLight;
+                            const darkStyle = LEGEND[type]?.pill;
+
+                            return (
+                              <div
+                                key={`${type}_${idx}_${(e as any).start}`}
+                                className={[
+                                  "rounded-2xl border px-4 py-3",
+                                  lightStyle,
+                                  `dark:${darkStyle}`,
+                                ].join(" ")}
+                              >
+                                <div className="text-sm font-semibold text-foreground dark:text-inherit">
+                                  {(e as any).label}
                                 </div>
-                              ) : null}
-                            </div>
-                          ))}
+                                {(e as any).start !== (e as any).end ? (
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    {(e as any).start} → {(e as any).end}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                       </div>
                     )}
                   </div>
@@ -628,7 +664,7 @@ export default function CalendarPage() {
                           .map((e) => (
                             <div
                               key={(e as any).id}
-                              className="rounded-2xl border border-purple-400/25 bg-purple-400/10 px-4 py-3 text-purple-100"
+                              className="rounded-2xl border border-purple-400/25 bg-purple-400/10 px-4 py-3 text-purple-700 dark:text-purple-100"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">

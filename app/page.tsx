@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { motion, useReducedMotion, type Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   BookOpen,
@@ -15,114 +15,25 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-const features = [
-  {
-    icon: BookOpen,
-    title: 'Cours structurés',
-    description: 'Contenus pédagogiques organisés par niveau, matière et chapitre',
-  },
-  {
-    icon: Target,
-    title: 'Exercices pratiques',
-    description: 'Entraînez-vous avec des exercices adaptés à votre progression',
-  },
-  {
-    icon: Award,
-    title: 'Quiz de validation',
-    description: 'Testez vos connaissances et validez votre maîtrise de chaque chapitre',
-  },
-  {
-    icon: BarChart3,
-    title: 'Suivi de progression',
-    description: 'Visualisez votre avancement et identifiez vos points d’amélioration',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Méthode éprouvée',
-    description: 'Une approche pédagogique basée sur la répétition et la validation',
-  },
-  {
-    icon: Users,
-    title: 'Conçu pour vous',
-    description: 'Adapté au programme scolaire congolais et aux réalités locales',
-  },
-];
-
-const subjects = [
-  'Analyse',
-  'Algèbre',
-  'Trigonométrie',
-  'Géométrie',
-  'Statistique',
-  'Physique',
-  'Chimie',
-  'Biologie / Écologie',
-  'Géographie économique',
-];
-
-const steps = [
-  {
-    step: '1',
-    title: 'Choisissez votre matière',
-    description: 'Sélectionnez la matière que vous souhaitez étudier parmi notre catalogue',
-  },
-  {
-    step: '2',
-    title: 'Lisez le cours',
-    description: 'Étudiez le contenu pédagogique de chaque chapitre à votre rythme',
-  },
-  {
-    step: '3',
-    title: 'Faites les exercices',
-    description: 'Pratiquez avec des exercices pour consolider vos connaissances',
-  },
-  {
-    step: '4',
-    title: 'Passez le quiz',
-    description: 'Validez votre maîtrise du chapitre avec un quiz de validation',
-  },
-];
-
-const fadeUpVariants: Variants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const fadeLeftVariants: Variants = {
-  hidden: { opacity: 0, x: -16 },
-  visible: { opacity: 1, x: 0 },
-};
-
 export default function LandingPage() {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
-      <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-2">
               <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold font-serif">EduStat-RDC</span>
+              <span className="font-serif text-xl font-bold">EduStat-RDC</span>
             </div>
 
-            <nav className="hidden md:flex items-center space-x-8">
-              <Link
-                href="#features"
-                className="text-sm font-medium hover:text-primary transition-colors"
-              >
+            <nav className="hidden items-center space-x-8 md:flex">
+              <Link href="#features" className="text-sm font-medium transition-colors hover:text-primary">
                 Fonctionnalités
               </Link>
-              <Link
-                href="#subjects"
-                className="text-sm font-medium hover:text-primary transition-colors"
-              >
+              <Link href="#subjects" className="text-sm font-medium transition-colors hover:text-primary">
                 Matières
               </Link>
-              <Link
-                href="#about"
-                className="text-sm font-medium hover:text-primary transition-colors"
-              >
+              <Link href="#about" className="text-sm font-medium transition-colors hover:text-primary">
                 À propos
               </Link>
             </nav>
@@ -143,91 +54,100 @@ export default function LandingPage() {
 
       <main>
         <section className="relative overflow-hidden py-20 sm:py-32">
-          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.10),transparent_30%)]" />
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-4xl text-center">
-              <div className="space-y-6">
-                <motion.h1
-                  initial={prefersReducedMotion ? false : 'hidden'}
-                  animate={prefersReducedMotion ? 'visible' : 'visible'}
-                  variants={fadeUpVariants}
-                  transition={{ duration: 0.4 }}
-                  className="text-4xl font-bold tracking-tight sm:text-6xl font-serif"
-                >
-                  Réussir l&apos;école avec{' '}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+              >
+                <h1 className="mb-6 font-serif text-4xl font-bold tracking-tight sm:text-6xl">
+                  Réussir l'école avec{' '}
                   <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                     méthode, discipline
                   </span>{' '}
                   et intelligence
-                </motion.h1>
+                </h1>
 
-                <motion.p
-                  initial={prefersReducedMotion ? false : 'hidden'}
-                  animate={prefersReducedMotion ? 'visible' : 'visible'}
-                  variants={fadeUpVariants}
-                  transition={{ duration: 0.45, delay: 0.05 }}
-                  className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto"
-                >
+                <p className="mb-10 text-lg leading-relaxed text-muted-foreground sm:text-xl">
                   Une plateforme éducative structurée pour les élèves congolais.
                   Maîtrisez vos matières grâce à des cours structurés, des exercices pratiques
                   et des quiz de validation.
-                </motion.p>
+                </p>
 
-                <motion.div
-                  initial={prefersReducedMotion ? false : 'hidden'}
-                  animate={prefersReducedMotion ? 'visible' : 'visible'}
-                  variants={fadeUpVariants}
-                  transition={{ duration: 0.45, delay: 0.1 }}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-4"
-                >
+                <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
                   <Link href="/auth/register">
-                    <Button size="lg" className="text-base px-8">
+                    <Button size="lg" className="px-8 text-base">
                       Commencer gratuitement
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </Link>
+
                   <Link href="/auth/login">
-                    <Button size="lg" variant="outline" className="text-base px-8">
+                    <Button size="lg" variant="outline" className="px-8 text-base">
                       J&apos;ai déjà un compte
                     </Button>
                   </Link>
-                </motion.div>
-              </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </section>
 
-        <section id="features" className="py-20 bg-muted/30">
+        <section id="features" className="bg-muted/30 py-20">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial={prefersReducedMotion ? false : 'hidden'}
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.15 }}
-              variants={fadeUpVariants}
-              transition={{ duration: 0.45 }}
-              className="mx-auto max-w-2xl text-center mb-16"
-            >
-              <h2 className="text-3xl font-bold sm:text-4xl mb-4 font-serif">
+            <div className="mx-auto mb-16 max-w-2xl text-center">
+              <h2 className="mb-4 font-serif text-3xl font-bold sm:text-4xl">
                 Une approche structurée de l&apos;apprentissage
               </h2>
               <p className="text-lg text-muted-foreground">
                 Développez la discipline et la rigueur nécessaires pour exceller dans vos études
               </p>
-            </motion.div>
+            </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-              {features.map((feature, index) => (
+            <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {[
+                {
+                  icon: BookOpen,
+                  title: 'Cours structurés',
+                  description: 'Contenus pédagogiques organisés par niveau, matière et chapitre',
+                },
+                {
+                  icon: Target,
+                  title: 'Exercices pratiques',
+                  description: 'Entraînez-vous avec des exercices adaptés à votre progression',
+                },
+                {
+                  icon: Award,
+                  title: 'Quiz de validation',
+                  description: 'Testez vos connaissances et validez votre maîtrise de chaque chapitre',
+                },
+                {
+                  icon: BarChart3,
+                  title: 'Suivi de progression',
+                  description: "Visualisez votre avancement et identifiez vos points d'amélioration",
+                },
+                {
+                  icon: TrendingUp,
+                  title: 'Méthode éprouvée',
+                  description: 'Une approche pédagogique basée sur la répétition et la validation',
+                },
+                {
+                  icon: Users,
+                  title: 'Conçu pour vous',
+                  description: 'Adapté au programme scolaire congolais et aux réalités locales',
+                },
+              ].map((feature, index) => (
                 <motion.div
-                  key={feature.title}
-                  initial={prefersReducedMotion ? false : 'hidden'}
-                  whileInView="visible"
-                  viewport={{ once: true, amount: 0.12 }}
-                  variants={fadeUpVariants}
-                  transition={{ duration: 0.35, delay: prefersReducedMotion ? 0 : index * 0.04 }}
-                  className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-shadow"
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="rounded-lg border border-border bg-card p-6 transition-shadow hover:shadow-lg"
                 >
-                  <feature.icon className="h-10 w-10 text-primary mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                  <feature.icon className="mb-4 h-10 w-10 text-primary" />
+                  <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
                   <p className="text-muted-foreground">{feature.description}</p>
                 </motion.div>
               ))}
@@ -237,76 +157,91 @@ export default function LandingPage() {
 
         <section id="subjects" className="py-20">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial={prefersReducedMotion ? false : 'hidden'}
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.15 }}
-              variants={fadeUpVariants}
-              transition={{ duration: 0.45 }}
-              className="mx-auto max-w-2xl text-center mb-16"
-            >
-              <h2 className="text-3xl font-bold sm:text-4xl mb-4 font-serif">
+            <div className="mx-auto mb-16 max-w-2xl text-center">
+              <h2 className="mb-4 font-serif text-3xl font-bold sm:text-4xl">
                 Toutes vos matières en un seul endroit
               </h2>
               <p className="text-lg text-muted-foreground">
                 Mathématiques, Sciences, et plus encore
               </p>
-            </motion.div>
+            </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              {subjects.map((subject, index) => (
+            <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                'Analyse',
+                'Algèbre',
+                'Trigonométrie',
+                'Géométrie',
+                'Statistique',
+                'Physique',
+                'Chimie',
+                'Biologie / Écologie',
+                'Géographie économique',
+              ].map((subject, index) => (
                 <motion.div
-                  key={subject}
-                  initial={prefersReducedMotion ? false : 'hidden'}
-                  whileInView="visible"
-                  viewport={{ once: true, amount: 0.1 }}
-                  variants={fadeUpVariants}
-                  transition={{ duration: 0.3, delay: prefersReducedMotion ? 0 : index * 0.03 }}
-                  className="bg-gradient-to-br from-card to-muted/30 border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors"
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  viewport={{ once: true }}
+                  className="rounded-lg border border-border bg-gradient-to-br from-card to-muted/30 p-6 text-center transition-colors hover:border-primary/50"
                 >
-                  <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-3" />
-                  <h3 className="font-semibold text-lg">{subject}</h3>
+                  <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-green-600" />
+                  <h3 className="text-lg font-semibold">{subject}</h3>
                 </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="about" className="py-20 bg-muted/30">
+        <section id="about" className="bg-muted/30 py-20">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl">
-              <motion.div
-                initial={prefersReducedMotion ? false : 'hidden'}
-                whileInView="visible"
-                viewport={{ once: true, amount: 0.15 }}
-                variants={fadeUpVariants}
-                transition={{ duration: 0.45 }}
-                className="text-center mb-12"
-              >
-                <h2 className="text-3xl font-bold sm:text-4xl mb-4 font-serif">
+              <div className="mb-12 text-center">
+                <h2 className="mb-4 font-serif text-3xl font-bold sm:text-4xl">
                   Comment ça marche ?
                 </h2>
                 <p className="text-lg text-muted-foreground">
                   Un parcours d&apos;apprentissage simple et efficace
                 </p>
-              </motion.div>
+              </div>
 
               <div className="space-y-8">
-                {steps.map((item, index) => (
+                {[
+                  {
+                    step: '1',
+                    title: 'Choisissez votre matière',
+                    description: 'Sélectionnez la matière que vous souhaitez étudier parmi notre catalogue',
+                  },
+                  {
+                    step: '2',
+                    title: 'Lisez le cours',
+                    description: 'Étudiez le contenu pédagogique de chaque chapitre à votre rythme',
+                  },
+                  {
+                    step: '3',
+                    title: 'Faites les exercices',
+                    description: 'Pratiquez avec des exercices pour consolider vos connaissances',
+                  },
+                  {
+                    step: '4',
+                    title: 'Passez le quiz',
+                    description: 'Validez votre maîtrise du chapitre avec un quiz de validation',
+                  },
+                ].map((item, index) => (
                   <motion.div
-                    key={item.step}
-                    initial={prefersReducedMotion ? false : 'hidden'}
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.15 }}
-                    variants={fadeLeftVariants}
-                    transition={{ duration: 0.35, delay: prefersReducedMotion ? 0 : index * 0.04 }}
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                    viewport={{ once: true }}
                     className="flex items-start space-x-4"
                   >
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
                       {item.step}
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
+                      <h3 className="mb-2 text-xl font-semibold">{item.title}</h3>
                       <p className="text-muted-foreground">{item.description}</p>
                     </div>
                   </motion.div>
@@ -318,40 +253,33 @@ export default function LandingPage() {
 
         <section className="py-20">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial={prefersReducedMotion ? false : 'hidden'}
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.15 }}
-              variants={fadeLeftVariants}
-              transition={{ duration: 0.45 }}
-              className="mx-auto max-w-2xl text-center"
-            >
-              <h2 className="text-3xl font-bold sm:text-4xl mb-6 font-serif">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="mb-6 font-serif text-3xl font-bold sm:text-4xl">
                 Prêt à commencer votre parcours ?
               </h2>
-              <p className="text-lg text-muted-foreground mb-10">
+              <p className="mb-10 text-lg text-muted-foreground">
                 Rejoignez des milliers d&apos;élèves qui progressent chaque jour avec EduStat-RDC
               </p>
               <Link href="/auth/register">
-                <Button size="lg" className="text-base px-10">
+                <Button size="lg" className="px-10 text-base">
                   Créer un compte gratuit
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-            </motion.div>
+            </div>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-border bg-muted/30 py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2 mb-4 md:mb-0">
+          <div className="flex flex-col items-center justify-between md:flex-row">
+            <div className="mb-4 flex items-center space-x-2 md:mb-0">
               <GraduationCap className="h-6 w-6" />
-              <span className="font-bold font-serif">EduStat-RDC</span>
+              <span className="font-serif font-bold">EduStat-RDC</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2026 EduStat-RDC. Tous droits réservés.
+              © 2024 EduStat-RDC. Tous droits réservés.
             </p>
           </div>
         </div>

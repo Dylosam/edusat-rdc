@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,39 +76,84 @@ function buildProgressFromSubjects(subjects: ProfileSubject[]): ProfileProgress[
 
 export default function ProfilePage() {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
+
   const [user, setUser] = useState<User | null>(null);
   const [subjects, setSubjects] = useState<ProfileSubject[]>([]);
-  const [progressData, setProgressData] = useState<ProfileProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const loadData = async () => {
-      const currentUser = await mockGetCurrentUser();
+      try {
+        const [currentUser, subjectsData] = await Promise.all([
+          mockGetCurrentUser(),
+          getSubjects(),
+        ]);
 
-      if (!currentUser) {
-        router.push('/auth/login');
-        return;
+        if (!mounted) return;
+
+        if (!currentUser) {
+          router.push('/auth/login');
+          return;
+        }
+
+        const normalizedSubjects = Array.isArray(subjectsData)
+          ? subjectsData.map(normalizeSubject)
+          : [];
+
+        setUser(currentUser);
+        setSubjects(normalizedSubjects);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-
-      setUser(currentUser);
-
-      const subjectsData = await getSubjects();
-      const normalizedSubjects = Array.isArray(subjectsData)
-        ? subjectsData.map(normalizeSubject)
-        : [];
-
-      setSubjects(normalizedSubjects);
-      setProgressData(buildProgressFromSubjects(normalizedSubjects));
-      setIsLoading(false);
     };
 
     loadData();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
+
+  const progressData = useMemo(() => buildProgressFromSubjects(subjects), [subjects]);
+
+  const totalChaptersCompleted = useMemo(
+    () => progressData.reduce((acc, p) => acc + p.chaptersCompleted, 0),
+    [progressData]
+  );
+
+  const totalQuizzesPassed = useMemo(
+    () => progressData.reduce((acc, p) => acc + p.quizzesPassed, 0),
+    [progressData]
+  );
+
+  const averageScore = useMemo(
+    () =>
+      progressData.length > 0
+        ? progressData.reduce((acc, p) => acc + p.averageScore, 0) / progressData.length
+        : 0,
+    [progressData]
+  );
+
+  const hoursStudied = useMemo(
+    () => Math.floor((user?.totalTimeStudied || 0) / 60),
+    [user?.totalTimeStudied]
+  );
+
+  const minutesStudied = useMemo(
+    () => (user?.totalTimeStudied || 0) % 60,
+    [user?.totalTimeStudied]
+  );
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+      <div className="min-h-screen bg-background">
+        <DashboardNav />
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+        </div>
       </div>
     );
   }
@@ -117,33 +162,15 @@ export default function ProfilePage() {
     return null;
   }
 
-  const totalChaptersCompleted = progressData.reduce(
-    (acc, p) => acc + p.chaptersCompleted,
-    0
-  );
-
-  const totalQuizzesPassed = progressData.reduce(
-    (acc, p) => acc + p.quizzesPassed,
-    0
-  );
-
-  const averageScore =
-    progressData.length > 0
-      ? progressData.reduce((acc, p) => acc + p.averageScore, 0) / progressData.length
-      : 0;
-
-  const hoursStudied = Math.floor((user.totalTimeStudied || 0) / 60);
-  const minutesStudied = (user.totalTimeStudied || 0) % 60;
-
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
       <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.18 }}
         >
           <div className="mb-8">
             <h1 className="mb-2 text-3xl font-bold font-serif sm:text-4xl">Profil</h1>
@@ -165,7 +192,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-semibold">{user.name}</h3>
+                    <h3 className="text-lg font-semibold">{user.name || 'Utilisateur'}</h3>
                     <Badge variant={user.subscription === 'premium' ? 'default' : 'secondary'}>
                       {user.subscription === 'premium' ? (
                         <>
@@ -182,7 +209,7 @@ export default function ProfilePage() {
                 <div className="space-y-3 border-t pt-4">
                   <div className="flex items-center space-x-3 text-sm">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{user.phone}</span>
+                    <span>{user.phone || 'Non renseigné'}</span>
                   </div>
 
                   {user.email && (
@@ -194,20 +221,23 @@ export default function ProfilePage() {
 
                   <div className="flex items-center space-x-3 text-sm">
                     <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                    <span>Niveau: {user.level}</span>
+                    <span>Niveau: {user.level || 'Non défini'}</span>
                   </div>
 
                   <div className="flex items-center space-x-3 text-sm">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span>
-                      Membre depuis {new Date(user.joinDate).toLocaleDateString('fr-FR')}
+                      Membre depuis{' '}
+                      {user.joinDate
+                        ? new Date(user.joinDate).toLocaleDateString('fr-FR')
+                        : 'Date inconnue'}
                     </span>
                   </div>
                 </div>
 
                 {user.subscription === 'free' && (
                   <div className="border-t pt-4">
-                    <Link href="/subscription">
+                    <Link prefetch href="/subscription">
                       <Button className="w-full">
                         <Crown className="mr-2 h-4 w-4" />
                         Passer à Premium
@@ -293,6 +323,12 @@ export default function ProfilePage() {
                       </div>
                     );
                   })}
+
+                  {subjects.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Aucune matière disponible pour le moment.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>

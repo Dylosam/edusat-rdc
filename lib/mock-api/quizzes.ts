@@ -1,6 +1,5 @@
 import type { Quiz } from "@/lib/types/quiz";
 
-
 export const mockQuizzes: Quiz[] = [
   {
     id: "quiz-polynomes",
@@ -73,12 +72,133 @@ export const mockQuizzes: Quiz[] = [
       },
     ],
   },
+
+  {
+    id: "quiz-mm5-9",
+    chapterId: "mm5-9",
+    title: "Quiz - Domaine de définition d’une fonction",
+    description:
+      "Teste ta compréhension du domaine de définition : fractions, racines paires, racines impaires et combinaisons de contraintes.",
+    timeLimitSec: 900,
+    maxAttempts: 3,
+    shuffleQuestions: false,
+    shuffleOptions: false,
+    questions: [
+      {
+        id: "q-mm59-1",
+        type: "single_choice",
+        question: "Quelle valeur est interdite pour la fonction suivante ?",
+        katex: "f(x)=\\frac{1}{x-2}",
+        options: ["-2", "0", "2", "4"],
+        correctAnswer: "2",
+        explanation:
+          "Le dénominateur ne peut pas être nul. On impose x - 2 ≠ 0, donc x ≠ 2.",
+        points: 1,
+        lessonId: "lesson-mm5-9-introduction",
+      },
+      {
+        id: "q-mm59-2",
+        type: "single_choice",
+        question: "Quel est le domaine de définition de la fonction suivante ?",
+        katex: "g(x)=3x^2-5x+1",
+        options: ["ℝ", "ℝ \\ {0}", "[0,+∞[", "]−∞,1]"],
+        correctAnswer: "ℝ",
+        explanation:
+          "Une fonction polynomiale est définie pour tous les réels.",
+        points: 1,
+        lessonId: "lesson-mm5-9-polynomes",
+      },
+      {
+        id: "q-mm59-3",
+        type: "single_choice",
+        question: "Quel est le domaine de définition de la fonction suivante ?",
+        katex: "h(x)=\\sqrt{x-3}",
+        options: ["x > 3", "x ≥ 3", "x < 3", "ℝ"],
+        correctAnswer: "x ≥ 3",
+        explanation:
+          "Pour une racine carrée, on impose que l’intérieur soit positif ou nul : x - 3 ≥ 0.",
+        points: 1,
+        lessonId: "lesson-mm5-9-racines-paires",
+      },
+      {
+        id: "q-mm59-4",
+        type: "single_choice",
+        question: "Quel est le domaine de définition de la fonction suivante ?",
+        katex: "p(x)=\\sqrt[3]{x-5}",
+        options: ["x ≥ 5", "x > 5", "ℝ", "]−∞,5]"],
+        correctAnswer: "ℝ",
+        explanation:
+          "Une racine d’indice impair est définie pour tous les réels.",
+        points: 1,
+        lessonId: "lesson-mm5-9-racines-impaires",
+      },
+      {
+        id: "q-mm59-5",
+        type: "single_choice",
+        question: "Quel est le domaine de définition de la fonction suivante ?",
+        katex: "q(x)=\\frac{1}{\\sqrt{x-4}}",
+        options: ["x ≥ 4", "x > 4", "x < 4", "x ≠ 4"],
+        correctAnswer: "x > 4",
+        explanation:
+          "Une racine carrée au dénominateur impose une condition stricte : x - 4 > 0.",
+        points: 1,
+        lessonId: "lesson-mm5-9-racines-denominateur",
+      },
+      {
+        id: "q-mm59-6",
+        type: "single_choice",
+        question: "Quel est le domaine de définition de la fonction suivante ?",
+        katex: "r(x)=\\frac{\\sqrt{x+1}}{x-3}",
+        options: [
+          "[-1,+∞[",
+          "[-1,+∞[ \\setminus \\{3\\}",
+          "]−1,+∞[",
+          "ℝ \\setminus \\{3\\}",
+        ],
+        correctAnswer: "[-1,+∞[ \\setminus \\{3\\}",
+        explanation:
+          "La racine impose x + 1 ≥ 0, donc x ≥ -1. Le dénominateur impose x ≠ 3. On combine les deux.",
+        points: 1,
+        lessonId: "lesson-mm5-9-combinaisons",
+      },
+      {
+        id: "q-mm59-7",
+        type: "single_choice",
+        question: "Quel est le domaine de définition de la fonction suivante ?",
+        katex: "s(x)=\\frac{\\sqrt{x+2}}{\\sqrt{x-1}}",
+        options: ["x ≥ -2", "x > 1", "x ≥ 1", "x ≥ -2 et x ≠ 1"],
+        correctAnswer: "x > 1",
+        explanation:
+          "Au numérateur, on impose x + 2 ≥ 0. Au dénominateur, on impose x - 1 > 0. L’intersection donne x > 1.",
+        points: 1,
+        lessonId: "lesson-mm5-9-combinaisons",
+      },
+      {
+        id: "q-mm59-8",
+        type: "single_choice",
+        question: "Quelle est la bonne méthode générale ?",
+        options: [
+          "Chercher seulement les racines",
+          "Chercher seulement les dénominateurs",
+          "Repérer toutes les contraintes puis les combiner",
+          "Toujours répondre ℝ sauf si on voit une fraction",
+        ],
+        correctAnswer: "Repérer toutes les contraintes puis les combiner",
+        explanation:
+          "La bonne méthode consiste à repérer toutes les restrictions puis à prendre leur intersection.",
+        points: 1,
+        lessonId: "lesson-mm5-9-methode",
+      },
+    ],
+  },
 ];
 
 export async function getQuizById(id: string): Promise<Quiz | null> {
   return mockQuizzes.find((quiz) => quiz.id === id) ?? null;
 }
 
-export async function getQuizByChapterId(chapterId: string): Promise<Quiz | null> {
+export async function getQuizByChapterId(
+  chapterId: string
+): Promise<Quiz | null> {
   return mockQuizzes.find((quiz) => quiz.chapterId === chapterId) ?? null;
 }

@@ -21,6 +21,18 @@ export const chapters: Chapter[] = [
     estimatedMinutes: 25,
     quizId: "quiz-polynomes",
   },
+
+  {
+    id: "mm5-9",
+    subjectId: "subject-analyse",
+    subjectSlug: "analyse",
+    title: "Domaine de définition d'une fonction",
+    description:
+      "Apprendre à déterminer toutes les valeurs de x pour lesquelles une fonction est définie.",
+    order: 1,
+    estimatedMinutes: 50,
+    quizId: "quiz-mm5-9",
+  },
 ];
 
 export function getAllChapters() {

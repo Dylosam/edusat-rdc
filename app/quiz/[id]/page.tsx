@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { toast } from "sonner";
-import { LatexInline } from "@/components/math/latex";
+import { LatexInline, LatexBlock } from "@/components/math/latex";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,6 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { LatexBlock } from "@/components/math/latex";
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,6 +22,7 @@ import {
   RotateCcw,
   Clock,
 } from "lucide-react";
+
 import { markStepDone } from "@/lib/study/progress";
 import type { Quiz, QuizQuestion } from "@/lib/types/quiz";
 import { getQuizById } from "@/lib/quiz/data";
@@ -80,6 +80,16 @@ function isAnswered(q: QuizQuestion, value: any) {
   if (q.type === "numeric") return value !== "" && value !== null && value !== undefined;
   if (q.type === "text") return String(value ?? "").trim().length > 0;
   return value !== "" && value !== null && value !== undefined;
+}
+
+function compareAnswers(userAnswer: any, correctAnswer: any) {
+  if (Array.isArray(userAnswer) || Array.isArray(correctAnswer)) {
+    const ua = Array.isArray(userAnswer) ? [...userAnswer].map(String).sort() : [];
+    const ca = Array.isArray(correctAnswer) ? [...correctAnswer].map(String).sort() : [];
+    return JSON.stringify(ua) === JSON.stringify(ca);
+  }
+
+  return String(userAnswer ?? "") === String(correctAnswer ?? "");
 }
 
 function buildSessionFromQuiz(quiz: Quiz): {
@@ -164,6 +174,7 @@ export default function QuizPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+  const prefersReducedMotion = useReducedMotion();
 
   const quizId = params?.id as string;
   const fresh = searchParams.get("fresh");
@@ -218,27 +229,26 @@ export default function QuizPage() {
     };
   }, [quizId]);
 
- useEffect(() => {
-  if (fresh) {
-    setAnswers({});
-    setStoredResult(null);
-    setIsSubmitted(false);
-    return;
-  }
+  useEffect(() => {
+    if (fresh) {
+      setAnswers({});
+      setStoredResult(null);
+      setIsSubmitted(false);
+      return;
+    }
 
-  const savedAnswers = loadQuizAnswers(quizId);
-  if (savedAnswers) setAnswers(savedAnswers);
-  else setAnswers({});
+    const savedAnswers = loadQuizAnswers(quizId);
+    setAnswers(savedAnswers ?? {});
 
-  const savedResult = loadQuizResult(quizId) as StoredQuizResult | null;
-  if (savedResult) {
-    setStoredResult(savedResult);
-    setIsSubmitted(true);
-  } else {
-    setStoredResult(null);
-    setIsSubmitted(false);
-  }
-}, [quizId, fresh]);
+    const savedResult = loadQuizResult(quizId) as StoredQuizResult | null;
+    if (savedResult) {
+      setStoredResult(savedResult);
+      setIsSubmitted(true);
+    } else {
+      setStoredResult(null);
+      setIsSubmitted(false);
+    }
+  }, [quizId, fresh]);
 
   useEffect(() => {
     if (!quiz) return;
@@ -282,8 +292,10 @@ export default function QuizPage() {
   const initialRemaining = useMemo(() => {
     if (!quiz) return 1;
     if (!quiz.timeLimitSec) return 1;
+
     const s = loadQuizSession(quizId);
     if (s && typeof s.remainingSec === "number") return Math.max(0, s.remainingSec);
+
     return quiz.timeLimitSec;
   }, [quiz, quizId, fresh]);
 
@@ -358,15 +370,15 @@ export default function QuizPage() {
   });
 
   useEffect(() => {
-  if (!quiz?.timeLimitSec) return;
-  if (isSubmitted) return;
+    if (!quiz?.timeLimitSec) return;
+    if (isSubmitted) return;
 
-  const s = loadQuizSession(quizId);
+    const s = loadQuizSession(quizId);
 
-  if (s?.running || fresh) {
-    timer.start();
-  }
-}, [quiz?.timeLimitSec, quizId, isSubmitted, fresh]);
+    if (s?.running || fresh) {
+      timer.start();
+    }
+  }, [quiz?.timeLimitSec, quizId, isSubmitted, fresh, timer]);
 
   useEffect(() => {
     if (isSubmitted) return;
@@ -474,7 +486,7 @@ export default function QuizPage() {
                 Le quiz n’existe pas ou ne contient aucune question.
               </p>
               <Button asChild variant="outline">
-                <Link href="/subjects">Retour aux matières</Link>
+                <Link prefetch href="/subjects">Retour aux matières</Link>
               </Button>
             </CardContent>
           </Card>
@@ -484,9 +496,8 @@ export default function QuizPage() {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
-  const progressPercentage = totalQuestions > 0
-    ? ((currentQuestionIndex + 1) / totalQuestions) * 100
-    : 0;
+  const progressPercentage =
+    totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
 
   if (isSubmitted) {
     const res =
@@ -512,9 +523,9 @@ export default function QuizPage() {
 
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.3 }}
             className="max-w-2xl mx-auto"
           >
             <Card className="text-center">
@@ -530,6 +541,7 @@ export default function QuizPage() {
                     </div>
                   )}
                 </div>
+
                 <CardTitle className="text-3xl font-serif">
                   {passed ? "Félicitations !" : "Continuez vos efforts !"}
                 </CardTitle>
@@ -552,7 +564,7 @@ export default function QuizPage() {
                     const d = res.details?.find((x: any) => x.questionId === question.id);
                     const isCorrect = d
                       ? Boolean(d.isCorrect)
-                      : String(userAnswer) === String(correctAnswer);
+                      : compareAnswers(userAnswer, correctAnswer);
 
                     return (
                       <div
@@ -569,6 +581,7 @@ export default function QuizPage() {
                           ) : (
                             <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
                           )}
+
                           <div className="flex-1 text-left">
                             <p className="font-medium text-sm mb-1">{question.question}</p>
 
@@ -651,10 +664,10 @@ export default function QuizPage() {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentQuestionIndex}
-              initial={{ opacity: 0, x: 20 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 12 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.3 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, x: -12 }}
+              transition={{ duration: 0.18 }}
             >
               <Card>
                 <CardHeader>
@@ -662,139 +675,159 @@ export default function QuizPage() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-  {(currentQuestion as any).katex || (currentQuestion as any).latex ? (
-    <div className="rounded-lg border bg-muted/40 p-4 overflow-x-auto">
-      <div className="text-sm text-muted-foreground mb-2">Formule</div>
-      <LatexBlock value={String((currentQuestion as any).katex ?? (currentQuestion as any).latex)} />
-    </div>
-  ) : null}
+                  {(currentQuestion as any).katex || (currentQuestion as any).latex ? (
+                    <div className="rounded-lg border bg-muted/40 p-4 overflow-x-auto">
+                      <div className="text-sm text-muted-foreground mb-2">Formule</div>
+                      <LatexBlock
+                        value={String(
+                          (currentQuestion as any).katex ?? (currentQuestion as any).latex
+                        )}
+                      />
+                    </div>
+                  ) : null}
 
-  {/* SINGLE CHOICE */}
-{currentQuestion.type === "single_choice" ? (
-  <RadioGroup
-    value={String(answers[currentQuestion.id] ?? "")}
-    onValueChange={handleAnswerChange}
-    className="space-y-3"
-  >
-    {(currentQuestion.options ?? []).map((option, index) => {
-      const checked = String(answers[currentQuestion.id] ?? "") === option;
+                  {currentQuestion.type === "single_choice" ? (
+                    <RadioGroup
+                      value={String(answers[currentQuestion.id] ?? "")}
+                      onValueChange={handleAnswerChange}
+                      className="space-y-3"
+                    >
+                      {(currentQuestion.options ?? []).map((option, index) => {
+                        const checked = String(answers[currentQuestion.id] ?? "") === option;
 
-      return (
-        <label
-          key={index}
-          htmlFor={`option-${index}`}
-          className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
-            checked
-              ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50 hover:bg-muted/40"
-          }`}
-          onClick={() => handleAnswerChange(option)}
-        >
-          <RadioGroupItem value={option} id={`option-${index}`} />
+                        return (
+                          <label
+                            key={index}
+                            htmlFor={`option-${index}`}
+                            className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
+                              checked
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50 hover:bg-muted/40"
+                            }`}
+                          >
+                            <RadioGroupItem value={option} id={`option-${index}`} />
 
-          <span className="flex-1 text-sm sm:text-base">
-            <LatexInline value={String(option)} />
-          </span>
-        </label>
-      );
-    })}
-  </RadioGroup>
-) : null}
+                            <span className="flex-1 text-sm sm:text-base">
+                              <LatexInline value={String(option)} />
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </RadioGroup>
+                  ) : null}
 
-{/* MULTIPLE CHOICE */}
-{currentQuestion.type === "multiple_choice" ? (
-  <div className="space-y-3">
-    {(currentQuestion.options ?? []).map((option, index) => {
-      const arr = Array.isArray(answers[currentQuestion.id])
-        ? (answers[currentQuestion.id] as string[])
-        : [];
+                  {currentQuestion.type === "multiple_choice" ? (
+                    <div className="space-y-3">
+                      {(currentQuestion.options ?? []).map((option, index) => {
+                        const arr = Array.isArray(answers[currentQuestion.id])
+                          ? (answers[currentQuestion.id] as string[])
+                          : [];
 
-      const checked = arr.includes(option);
+                        const checked = arr.includes(option);
 
-      return (
-        <label
-          key={index}
-          className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
-            checked
-              ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50 hover:bg-muted/40"
-          }`}
-        >
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={() => {
-              if (checked) {
-                handleAnswerChange(arr.filter((x) => x !== option));
-              } else {
-                handleAnswerChange([...arr, option]);
-              }
-            }}
-            className="h-4 w-4"
-          />
+                        return (
+                          <label
+                            key={index}
+                            className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
+                              checked
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50 hover:bg-muted/40"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                if (checked) {
+                                  handleAnswerChange(arr.filter((x) => x !== option));
+                                } else {
+                                  handleAnswerChange([...arr, option]);
+                                }
+                              }}
+                              className="h-4 w-4"
+                            />
 
-          <span className="flex-1 text-sm sm:text-base">
-            <LatexInline value={String(option)} />
-          </span>
-        </label>
-      );
-    })}
-  </div>
-) : null}
+                            <span className="flex-1 text-sm sm:text-base">
+                              <LatexInline value={String(option)} />
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
 
-{/* TRUE / FALSE */}
-{currentQuestion.type === "true_false" ? (
-  <RadioGroup
-    value={String(answers[currentQuestion.id] ?? "")}
-    onValueChange={handleAnswerChange}
-    className="space-y-3"
-  >
-    {["true", "false"].map((v, index) => {
-      const checked = String(answers[currentQuestion.id] ?? "") === v;
+                  {currentQuestion.type === "true_false" ? (
+                    <RadioGroup
+                      value={String(answers[currentQuestion.id] ?? "")}
+                      onValueChange={handleAnswerChange}
+                      className="space-y-3"
+                    >
+                      {["true", "false"].map((v, index) => {
+                        const checked = String(answers[currentQuestion.id] ?? "") === v;
 
-      return (
-        <label
-          key={v}
-          htmlFor={`tf-${index}`}
-          className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
-            checked
-              ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50 hover:bg-muted/40"
-          }`}
-          onClick={() => handleAnswerChange(v)}
-        >
-          <RadioGroupItem value={v} id={`tf-${index}`} />
+                        return (
+                          <label
+                            key={v}
+                            htmlFor={`tf-${index}`}
+                            className={`flex w-full items-center gap-3 rounded-xl border p-4 transition-all cursor-pointer select-none ${
+                              checked
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50 hover:bg-muted/40"
+                            }`}
+                          >
+                            <RadioGroupItem value={v} id={`tf-${index}`} />
 
-          <span className="flex-1 text-sm sm:text-base">
-            {v === "true" ? "Vrai" : "Faux"}
-          </span>
-        </label>
-      );
-    })}
-  </RadioGroup>
-) : null}
-  {currentQuestion.type === "text" ? (
-    <div>
-      <Label htmlFor="text-answer" className="mb-2 block">
-        Votre réponse :
-      </Label>
-      <Input
-        id="text-answer"
-        type="text"
-        placeholder="Entrez votre réponse"
-        value={normalizeAnswer(answers[currentQuestion.id], currentQuestion)}
-        onChange={(e) => handleAnswerChange(e.target.value)}
-        className="text-lg"
-      />
-    </div>
-  ) : null}
-</CardContent>
+                            <span className="flex-1 text-sm sm:text-base">
+                              {v === "true" ? "Vrai" : "Faux"}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </RadioGroup>
+                  ) : null}
+
+                  {currentQuestion.type === "text" ? (
+                    <div>
+                      <Label htmlFor="text-answer" className="mb-2 block">
+                        Votre réponse :
+                      </Label>
+                      <Input
+                        id="text-answer"
+                        type="text"
+                        placeholder="Entrez votre réponse"
+                        value={normalizeAnswer(answers[currentQuestion.id], currentQuestion)}
+                        onChange={(e) => handleAnswerChange(e.target.value)}
+                        className="text-lg"
+                      />
+                    </div>
+                  ) : null}
+
+                  {currentQuestion.type === "numeric" ? (
+                    <div>
+                      <Label htmlFor="numeric-answer" className="mb-2 block">
+                        Votre réponse :
+                      </Label>
+                      <Input
+                        id="numeric-answer"
+                        type="number"
+                        placeholder="Entrez votre réponse"
+                        value={normalizeAnswer(answers[currentQuestion.id], currentQuestion)}
+                        onChange={(e) => handleAnswerChange(e.target.value)}
+                        className="text-lg"
+                      />
+                    </div>
+                  ) : null}
+                </CardContent>
               </Card>
             </motion.div>
           </AnimatePresence>
 
           <div className="flex items-center justify-between mt-8">
-            <Button variant="outline" onClick={handlePrevious} disabled={currentQuestionIndex === 0}>
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentQuestionIndex === 0}
+            >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Précédent
             </Button>

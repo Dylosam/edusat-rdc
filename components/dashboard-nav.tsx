@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -25,61 +25,94 @@ import {
   Wrench,
   Menu,
   X,
-  FileText,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { mockGetCurrentUser, mockLogout } from '@/lib/mock-api/auth';
 import type { User as UserType } from '@/lib/types';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+
+const USER_CACHE_KEY = 'edustat:nav:user';
 
 export function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const prefersReducedMotion = useReducedMotion();
 
-  const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<UserType | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const navItems = useMemo(
+    () => [
+      { href: '/dashboard', label: 'Accueil' },
+      { href: '/subjects', label: 'Matières' },
+      { href: '/calendar', label: 'Calendrier' },
+      { href: '/profile', label: 'Profil' },
+    ],
+    []
+  );
+
   useEffect(() => {
-    setMounted(true);
+    let mounted = true;
+
+    const loadUser = async () => {
+      try {
+        const cached =
+          typeof window !== 'undefined' ? sessionStorage.getItem(USER_CACHE_KEY) : null;
+
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached) as UserType;
+            if (mounted) setUser(parsed);
+          } catch {
+            // ignore
+          }
+        }
+
+        const currentUser = await mockGetCurrentUser();
+        if (!mounted) return;
+
+        setUser(currentUser ?? null);
+
+        if (typeof window !== 'undefined') {
+          if (currentUser) {
+            sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(currentUser));
+          } else {
+            sessionStorage.removeItem(USER_CACHE_KEY);
+          }
+        }
+      } catch {
+        if (!mounted) return;
+        setUser(null);
+      }
+    };
+
+    loadUser();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    mockGetCurrentUser().then((data) => {
-      setUser(data as UserType | null);
-    });
-  }, []);
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await mockLogout();
+
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(USER_CACHE_KEY);
+    }
+
     toast.success('Déconnexion réussie');
     router.push('/');
-  };
+  }, [router]);
 
-  const closeMobileMenu = () => setMobileMenuOpen(false);
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
 
-  const navItems = [
-    { href: '/dashboard', label: 'Accueil' },
-    { href: '/subjects', label: 'Matières' },
-    { href: '/calendar', label: 'Calendrier' },
-    { href: '/profile', label: 'Profil' },
-  ];
-
-  const toolsItems = [
-    { href: '/outils/horaire', label: 'Horaire de cours' },
-    { href: '/outils/tableau-periodique', label: 'Tableau périodique' },
-    { href: '/outils/tableau-statistique', label: 'Tableau statistique' },
-    { href: '/outils/document-scolaire', label: 'Document scolaire' },
-  ];
-
-  const currentTheme = resolvedTheme || theme;
-  const isDark = currentTheme === 'dark';
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [setTheme, theme]);
 
   return (
     <>
@@ -99,28 +132,26 @@ export function DashboardNav() {
                 </Button>
               </div>
 
-              <Link href="/dashboard" className="flex min-w-0 items-center space-x-2">
+              <Link prefetch href="/dashboard" className="flex min-w-0 items-center space-x-2">
                 <GraduationCap className="h-8 w-8 shrink-0 text-primary" />
                 <span className="truncate text-lg font-bold font-serif sm:text-xl">
                   EduStat-RDC
                 </span>
               </Link>
 
-              <nav className="hidden md:flex items-center space-x-6">
-                {navItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`text-sm font-medium transition-colors hover:text-primary ${
-                        isActive ? 'text-primary' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
+              <nav className="hidden items-center space-x-6 md:flex">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    prefetch
+                    href={item.href}
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                      pathname === item.href ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </nav>
             </div>
 
@@ -128,32 +159,18 @@ export function DashboardNav() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  if (!mounted) return;
-                  setTheme(isDark ? 'light' : 'dark');
-                }}
+                onClick={toggleTheme}
                 aria-label="Changer le thème"
+                className="relative"
               >
-                {mounted ? (
-                  isDark ? (
-                    <Sun className="h-5 w-5" />
-                  ) : (
-                    <Moon className="h-5 w-5" />
-                  )
-                ) : (
-                  <div className="h-5 w-5" />
-                )}
+                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 <span className="sr-only">Changer le thème</span>
               </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hidden rounded-full md:flex"
-                    aria-label="Ouvrir le menu utilisateur"
-                  >
+                  <Button variant="ghost" size="icon" className="hidden rounded-full md:flex">
                     <User className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -161,11 +178,9 @@ export function DashboardNav() {
                 <DropdownMenuContent align="end" sideOffset={8} className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">
-                        {user?.name || 'Utilisateur'}
-                      </p>
+                      <p className="text-sm font-medium">{user?.name || 'Utilisateur'}</p>
                       <p className="text-xs text-muted-foreground">
-                        {user?.phone || 'Compte EduStat'}
+                        {user?.phone || 'Non renseigné'}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -173,14 +188,14 @@ export function DashboardNav() {
                   <DropdownMenuSeparator />
 
                   <DropdownMenuItem asChild>
-                    <Link href="/profile" className="cursor-pointer">
+                    <Link prefetch href="/profile" className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       Profil
                     </Link>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem asChild>
-                    <Link href="/subscription" className="cursor-pointer">
+                    <Link prefetch href="/subscription" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       Abonnement
                     </Link>
@@ -192,27 +207,20 @@ export function DashboardNav() {
                       Outils
                     </DropdownMenuSubTrigger>
 
-                    <DropdownMenuSubContent className="w-56">
+                    <DropdownMenuSubContent className="w-52">
                       <DropdownMenuItem asChild>
-                        <Link href="/outils/horaire">Horaire de cours</Link>
+                        <Link prefetch href="/outils/horaire">
+                          Horaire de cours
+                        </Link>
                       </DropdownMenuItem>
-
                       <DropdownMenuItem asChild>
-                        <Link href="/outils/tableau-periodique">
+                        <Link prefetch href="/outils/tableau-periodique">
                           Tableau périodique
                         </Link>
                       </DropdownMenuItem>
-
                       <DropdownMenuItem asChild>
-                        <Link href="/outils/tableau-statistique">
+                        <Link prefetch href="/outils/tableau-statistique">
                           Tableau statistique
-                        </Link>
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem asChild>
-                        <Link href="/outils/document-scolaire">
-                          <FileText className="mr-2 h-4 w-4" />
-                          Document scolaire
                         </Link>
                       </DropdownMenuItem>
                     </DropdownMenuSubContent>
@@ -239,17 +247,17 @@ export function DashboardNav() {
               aria-label="Fermer le menu"
               onClick={closeMobileMenu}
               className="fixed inset-0 z-[80] bg-black/45 md:hidden"
-              initial={{ opacity: 0 }}
+              initial={prefersReducedMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0 }}
             />
 
             <motion.aside
               className="fixed left-0 top-0 z-[90] h-dvh w-[82%] max-w-[320px] border-r border-border/40 bg-background shadow-2xl md:hidden"
-              initial={{ x: '-100%' }}
+              initial={prefersReducedMotion ? false : { x: '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'tween', duration: 0.24 }}
+              exit={prefersReducedMotion ? undefined : { x: '-100%' }}
+              transition={{ type: 'tween', duration: 0.18 }}
             >
               <div className="flex h-16 items-center justify-between border-b border-border/40 px-4">
                 <div className="flex min-w-0 items-center space-x-2">
@@ -272,27 +280,26 @@ export function DashboardNav() {
 
               <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-y-auto px-3 py-4">
                 <nav className="flex flex-col gap-1">
-                  {navItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={closeMobileMenu}
-                        className={`rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-muted text-primary'
-                            : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      prefetch
+                      href={item.href}
+                      onClick={closeMobileMenu}
+                      className={`rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
+                        pathname === item.href
+                          ? 'bg-muted text-primary'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
                 </nav>
 
                 <div className="mt-5 border-t border-border/40 pt-5">
                   <Link
+                    prefetch
                     href="/subscription"
                     onClick={closeMobileMenu}
                     className={`block rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
@@ -311,53 +318,38 @@ export function DashboardNav() {
                   </p>
 
                   <div className="flex flex-col gap-1">
-                    {toolsItems.map((item) => {
-                      const isActive = pathname === item.href;
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={closeMobileMenu}
-                          className={`rounded-lg px-3 py-3 text-sm transition-colors ${
-                            isActive
-                              ? 'bg-muted text-primary'
-                              : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
-                          }`}
-                        >
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-5 border-t border-border/40 pt-5">
-                  <div className="flex items-center justify-between rounded-lg px-3 py-3">
-                    <span className="text-sm text-muted-foreground">Thème</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (!mounted) return;
-                        setTheme(isDark ? 'light' : 'dark');
-                      }}
-                      aria-label="Changer le thème"
+                    <Link
+                      prefetch
+                      href="/outils/horaire"
+                      onClick={closeMobileMenu}
+                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
                     >
-                      {mounted ? (
-                        isDark ? (
-                          <Sun className="h-5 w-5" />
-                        ) : (
-                          <Moon className="h-5 w-5" />
-                        )
-                      ) : (
-                        <div className="h-5 w-5" />
-                      )}
-                    </Button>
+                      Horaire de cours
+                    </Link>
+
+                    <Link
+                      prefetch
+                      href="/outils/tableau-periodique"
+                      onClick={closeMobileMenu}
+                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
+                    >
+                      Tableau périodique
+                    </Link>
+
+                    <Link
+                      prefetch
+                      href="/outils/tableau-statistique"
+                      onClick={closeMobileMenu}
+                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
+                    >
+                      Tableau statistique
+                    </Link>
                   </div>
                 </div>
 
                 <div className="mt-auto border-t border-border/40 pt-5">
                   <button
+                    type="button"
                     onClick={handleLogout}
                     className="w-full rounded-lg px-3 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
                   >

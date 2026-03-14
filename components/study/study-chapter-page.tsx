@@ -1,40 +1,47 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { useParams, useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   PlayCircle,
   Sparkles,
   ChevronLeft,
   Trophy,
-  BookOpen,
   Clock3,
   RotateCcw,
+  GraduationCap,
+  BarChart3,
+  Search,
+  ClipboardCheck,
+  ListChecks,
+  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
+  BookOpen,
+  Target,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
-
+import { getChapterById } from "@/lib/mock-data/chapters";
 import LessonRenderer from "@/components/study/lesson-renderer";
 import { readProgressStore } from "@/lib/progress/index";
 import { findQuizByChapterId } from "@/lib/study/quiz-link";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 import { buildStudySteps } from "@/lib/study/build-study-steps";
 import {
   getChapterStudyState,
   markStepDone,
-  getResumeStepId,
   resetChapterStudyState,
 } from "@/lib/study/progress";
 
-import StudyOutline from "@/components/study/study-outline";
 import { getLessonById } from "@/lib/data/lessons";
-import { LatexBlock } from "@/components/math/latex";
 
 const EMPTY_STATE = {
   progressPercent: 0,
@@ -47,67 +54,54 @@ const EMPTY_STATE = {
   },
 };
 
-function ContentBlock({ block }: { block: any }) {
-  if (!block) return null;
+type MainSection = "overview" | "lessons" | "summary" | "quiz";
 
-  if (block.type === "text") {
-    return (
-      <p className="leading-8 text-[16px] text-muted-foreground">
-        {block.value}
-      </p>
-    );
-  }
-
-  if (block.type === "formula") {
-    return (
-      <div className="my-6">
-        <div className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Formule
-        </div>
-
-        <div className="flex justify-center py-4">
-          <LatexBlock value={String(block.value ?? "")} />
-        </div>
-      </div>
-    );
-  }
-
-  if (block.type === "example") {
-    return (
-      <div className="my-6">
-        <div className="mb-2 text-sm font-semibold">Exemple</div>
-
-        <p className="leading-8 text-[16px] text-muted-foreground">
-          {block.value}
-        </p>
-      </div>
-    );
-  }
-
-  if (block.type === "tip") {
-    return (
-      <div className="my-6 border-l-4 border-amber-400 pl-4">
-        <div className="mb-1 text-sm font-semibold">Astuce</div>
-
-        <p className="leading-8 text-[16px] text-muted-foreground">
-          {block.value}
-        </p>
-      </div>
-    );
-  }
-
-  return null;
+function SectionAnchorButton({
+  label,
+  icon: Icon,
+  active,
+  compact,
+  onClick,
+}: {
+  label: string;
+  icon: any;
+  active: boolean;
+  compact: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left transition-colors",
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+        compact ? "justify-center px-2" : "",
+      ].join(" ")}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {!compact ? (
+        <span className="truncate text-sm font-medium">{label}</span>
+      ) : null}
+    </button>
+  );
 }
 
 export default function StudyChapterPage() {
   const params = useParams();
+  const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   const chapterId = params.id as string;
 
   const steps = useMemo(() => buildStudySteps(chapterId), [chapterId]);
 
   const [mounted, setMounted] = useState(false);
   const [state, setState] = useState(EMPTY_STATE);
-  const [activeStepId, setActiveStepId] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeSection, setActiveSection] = useState<MainSection>("overview");
 
   useEffect(() => {
     setMounted(true);
@@ -116,7 +110,6 @@ export default function StudyChapterPage() {
   useEffect(() => {
     if (!mounted) return;
     setState(getChapterStudyState(chapterId, steps));
-    setActiveStepId(getResumeStepId(chapterId, steps));
   }, [mounted, chapterId, steps]);
 
   const progress = mounted ? state.progressPercent : 0;
@@ -126,65 +119,164 @@ export default function StudyChapterPage() {
 
   const lastQuizPercent = useMemo(() => {
     if (!mounted || !quiz?.id) return null;
+
     const store = readProgressStore();
     const result = (store.quizResults ?? {})[String(quiz.id)] as any;
+
     return typeof result?.percentage === "number"
       ? Math.round(result.percentage)
       : null;
   }, [mounted, quiz?.id]);
 
-  const resumeStepId = mounted
-    ? getResumeStepId(chapterId, steps)
-    : steps[0]?.id ?? "";
+  const lessonSteps = useMemo(
+    () => steps.filter((step) => String(step.kind) === "lesson"),
+    [steps]
+  );
 
-  const activeStep =
-    steps.find((step) => step.id === activeStepId) ?? steps[0] ?? null;
+  const summaryStep = useMemo(
+    () => steps.find((step) => String(step.kind) === "summary") ?? null,
+    [steps]
+  );
 
-  const activeLesson = useMemo(() => {
-    if (!activeStep?.id?.startsWith("lesson:")) return null;
-    const lessonId = activeStep.id.replace("lesson:", "");
-    return getLessonById(lessonId);
-  }, [activeStep]);
+  const quizStep = useMemo(
+    () => steps.find((step) => String(step.kind) === "quiz") ?? null,
+    [steps]
+  );
+  const chapter = useMemo(() => getChapterById(chapterId), [chapterId]);
 
-  function onCompleteStep(stepId: string) {
+  const lessonsWithData = useMemo(() => {
+    return lessonSteps
+      .map((step) => {
+        const lessonId = String(step.id).replace("lesson:", "");
+        const lesson = getLessonById(lessonId);
+
+        return lesson
+          ? {
+              step,
+              lesson,
+            }
+          : null;
+      })
+      .filter(Boolean) as Array<{ step: any; lesson: any }>;
+  }, [lessonSteps]);
+
+  const filteredLessons = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return lessonsWithData;
+
+    return lessonsWithData.filter(({ lesson, step }) => {
+      const title = String(lesson?.title ?? step?.title ?? "").toLowerCase();
+      const summary = String(
+        lesson?.summary ?? step?.subtitle ?? ""
+      ).toLowerCase();
+
+      const blocksText = Array.isArray(lesson?.content)
+        ? lesson.content
+            .map((block: any) => {
+              if (typeof block?.value === "string") return block.value;
+              if (typeof block?.content === "string") return block.content;
+              if (typeof block?.prompt === "string") return block.prompt;
+              if (Array.isArray(block?.steps)) return block.steps.join(" ");
+              if (Array.isArray(block?.segments)) {
+                return block.segments
+                  .map((seg: any) => String(seg?.value ?? ""))
+                  .join(" ");
+              }
+              return "";
+            })
+            .join(" ")
+            .toLowerCase()
+        : "";
+
+      return (
+        title.includes(q) ||
+        summary.includes(q) ||
+        blocksText.includes(q)
+      );
+    });
+  }, [lessonsWithData, search]);
+
+  const totalEstimatedMinutes =
+    state.meta.estimatedMinutes ||
+    lessonsWithData.reduce((acc, item) => {
+      return acc + Number(item.lesson?.durationMin ?? item.step?.minutes ?? 0);
+    }, 0);
+
+  function handleBack() {
+  if (chapter?.subjectSlug) {
+    router.push(`/subjects/${chapter.subjectSlug}`);
+    return;
+  }
+
+  router.push("/subjects");
+}
+
+
+
+  function handleMarkLessonDone(stepId: string) {
     markStepDone(chapterId, stepId);
+    const next = getChapterStudyState(chapterId, steps);
+    setState(next);
+  }
+
+  function scrollToSection(section: MainSection) {
+    setActiveSection(section);
+    const target = document.getElementById(`main-section-${section}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function resetStudy() {
+    resetChapterStudyState(chapterId);
     const next = getChapterStudyState(chapterId, steps);
     setState(next);
   }
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <Link
-            href="/subjects"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Retour
-          </Link>
+      <div className="border-b border-border/70 bg-background/95">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Retour
+              </button>
 
-          <div className="mt-4 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{state.meta.subjectLabel}</Badge>
-                <Badge variant="outline">{steps.length} étapes</Badge>
-                <Badge variant="outline">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full px-3 py-1">
+                  <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
+                  {state.meta.subjectLabel}
+                </Badge>
+
+                <Badge variant="outline" className="rounded-full px-3 py-1">
+                  {filteredLessons.length} leçon
+                  {filteredLessons.length > 1 ? "s" : ""}
+                </Badge>
+
+                <Badge variant="outline" className="rounded-full px-3 py-1">
                   {state.doneCount}/{steps.length} validées
                 </Badge>
               </div>
 
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              <h1 className="mt-4 font-serif text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
                 {state.meta.title}
               </h1>
 
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <Clock3 className="h-4 w-4" />
-                  {state.meta.estimatedMinutes} min
+                  {totalEstimatedMinutes} min
                 </span>
 
-                <span>•</span>
+                <span className="hidden sm:inline text-muted-foreground/50">
+                  •
+                </span>
 
                 {isCompleted ? (
                   <span className="inline-flex items-center gap-1.5 text-emerald-600">
@@ -192,37 +284,52 @@ export default function StudyChapterPage() {
                     Chapitre complété
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-blue-600">
                     <PlayCircle className="h-4 w-4" />
-                    En cours
+                    En progression
                   </span>
                 )}
               </div>
 
-              <p className="mt-3 max-w-3xl text-sm text-muted-foreground sm:text-base">
-                {isCompleted
-                  ? "Tu as terminé ce chapitre. Tu peux revoir les points clés ou passer directement au quiz."
-                  : "Choisis une étape dans le plan du chapitre et concentre-toi sur son contenu complet dans la zone de lecture."}
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
+                Tout le chapitre se lit maintenant dans une seule grande page.
+                Tu avances comme dans un vrai parcours d’apprentissage, avec les
+                exercices et les corrections détaillées au fil de la lecture.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                className="gap-2 rounded-full"
+              >
+                {sidebarOpen ? (
+                  <PanelLeftClose className="h-4 w-4" />
+                ) : (
+                  <PanelLeftOpen className="h-4 w-4" />
+                )}
+                {sidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
+              </Button>
+
               <Button
                 variant="secondary"
-                onClick={() => setActiveStepId(resumeStepId)}
-                className="gap-2"
+                onClick={() => scrollToSection("lessons")}
+                className="gap-2 rounded-full"
               >
                 <Sparkles className="h-4 w-4" />
-                Reprendre
+                Commencer
               </Button>
 
               {quiz?.id ? (
-                <Button asChild className="gap-2">
-                  <Link href={`/quiz/${String(quiz.id)}?fresh=1`}>
+                <Button asChild className="gap-2 rounded-full">
+                  <Link prefetch href={`/quiz/${String(quiz.id)}?fresh=1`}>
                     <Trophy className="h-4 w-4" />
-                    Aller au quiz
+                    Quiz final
                     {lastQuizPercent !== null ? (
-                      <span className="ml-1 opacity-80">({lastQuizPercent}%)</span>
+                      <span className="ml-1 opacity-80">
+                        ({lastQuizPercent}%)
+                      </span>
                     ) : null}
                   </Link>
                 </Button>
@@ -230,262 +337,367 @@ export default function StudyChapterPage() {
 
               <Button
                 variant="outline"
-                onClick={() => {
-                  resetChapterStudyState(chapterId);
-                  const next = getChapterStudyState(chapterId, steps);
-                  setState(next);
-                  setActiveStepId(steps[0]?.id ?? "");
-                }}
-                className="gap-2"
+                onClick={resetStudy}
+                className="gap-2 rounded-full"
               >
                 <RotateCcw className="h-4 w-4" />
                 Reset
               </Button>
             </div>
           </div>
-
-          <div className="mt-5 flex items-center gap-3">
-            <Progress value={progress} className="h-2.5" />
-            <div className="w-12 shrink-0 text-right text-sm text-muted-foreground">
-              {Math.round(progress)}%
-            </div>
-          </div>
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="xl:sticky xl:top-20 xl:h-[calc(100vh-110px)]">
-            <Card className="h-full overflow-hidden">
-              <CardHeader className="border-b bg-muted/20 pb-4">
-                <div className="flex items-center gap-2 text-base font-semibold">
-                  <BookOpen className="h-4 w-4" />
-                  Plan du chapitre
+      <div className="mx-auto flex max-w-7xl">
+        <aside
+          className={[
+            "shrink-0 border-r border-border/70 bg-background transition-all duration-300",
+            sidebarOpen
+              ? "w-[78px] md:w-[280px]"
+              : "w-0 overflow-hidden border-r-0",
+          ].join(" ")}
+        >
+          <div className="sidebar-scroll sticky top-16 h-[calc(100vh-64px)] overflow-y-auto">
+            <div className="px-3 py-5 md:px-5">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-muted">
+                  <PanelLeft className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Sélectionne une leçon, un résumé, un diagnostic ou le quiz.
+                <div className="hidden md:block">
+                  <p className="text-sm font-semibold">Menu du chapitre</p>
+                  <p className="text-xs text-muted-foreground">
+                    Navigation rapide
+                  </p>
                 </div>
-              </CardHeader>
+              </div>
 
-              <CardContent className="max-h-[70vh] overflow-y-auto p-4 xl:max-h-[calc(100vh-220px)]">
-                <StudyOutline
-                  steps={steps}
-                  activeStepId={activeStepId}
-                  onPick={setActiveStepId}
-                  doneMap={state.doneMap}
+              <div className="mb-6 hidden md:block">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher dans le chapitre..."
+                    className="rounded-full border-border/70 bg-background pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <div className="mb-3 hidden md:block">
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Progression
+                  </p>
+                  <p className="mt-2 text-3xl font-bold">
+                    {Math.round(progress)}%
+                  </p>
+                </div>
+
+                <div className="mb-4">
+                  <Progress value={progress} className="h-2" />
+                </div>
+
+                <div className="hidden md:grid grid-cols-2 gap-3 text-sm">
+                  <div className="border-b border-border/60 pb-3">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Fait
+                    </div>
+                    <div className="mt-1 text-lg font-semibold">
+                      {state.doneCount}
+                    </div>
+                  </div>
+                  <div className="border-b border-border/60 pb-3">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Restant
+                    </div>
+                    <div className="mt-1 text-lg font-semibold">
+                      {Math.max(steps.length - state.doneCount, 0)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t border-border/70 pt-4">
+                <SectionAnchorButton
+                  label="Aperçu"
+                  icon={Target}
+                  active={activeSection === "overview"}
+                  compact={!sidebarOpen || false}
+                  onClick={() => scrollToSection("overview")}
                 />
-              </CardContent>
-            </Card>
-          </aside>
+                <SectionAnchorButton
+                  label="Leçons"
+                  icon={BookOpen}
+                  active={activeSection === "lessons"}
+                  compact={!sidebarOpen || false}
+                  onClick={() => scrollToSection("lessons")}
+                />
+                <SectionAnchorButton
+                  label="Résumé"
+                  icon={ListChecks}
+                  active={activeSection === "summary"}
+                  compact={!sidebarOpen || false}
+                  onClick={() => scrollToSection("summary")}
+                />
+                <SectionAnchorButton
+                  label="Quiz final"
+                  icon={ClipboardCheck}
+                  active={activeSection === "quiz"}
+                  compact={!sidebarOpen || false}
+                  onClick={() => scrollToSection("quiz")}
+                />
+              </div>
 
-          <section className="min-w-0">
-            {!activeStep ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  Sélectionne une étape pour commencer.
-                </CardContent>
-              </Card>
-            ) : activeStep.kind === "lesson" && activeLesson ? (
-              <motion.div
-                key={activeStep.id}
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <Card>
-                  <CardHeader className="border-b pb-5">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary">
-                            {activeStep.kindLabel || "Leçon"}
-                          </Badge>
-                          {activeLesson.durationMin ? (
-                            <Badge variant="outline">
-                              {activeLesson.durationMin} min
-                            </Badge>
-                          ) : null}
-                          {state.doneMap[activeStep.id] ? (
-                            <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
-                              Terminée
-                            </Badge>
-                          ) : null}
-                        </div>
-
-                        <h2 className="text-2xl font-semibold tracking-tight">
-                          {activeLesson.title}
-                        </h2>
-
-                        {activeLesson.summary ? (
-                          <p className="mt-2 text-muted-foreground">
-                            {activeLesson.summary}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="shrink-0">
-                        <Button
-                          onClick={() => onCompleteStep(activeStep.id)}
-                          className="gap-2"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          {state.doneMap[activeStep.id]
-                            ? "Leçon validée"
-                            : "J’ai compris"}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-6 py-8">
-                    {Array.isArray((activeLesson as any).blocks) &&
-                    (activeLesson as any).blocks.length > 0 ? (
-                      <LessonRenderer blocks={(activeLesson as any).blocks} />
-                    ) : Array.isArray((activeLesson as any).content) &&
-                      (activeLesson as any).content.length > 0 ? (
-                      (activeLesson as any).content.map(
-                        (block: any, index: number) => (
-                          <ContentBlock
-                            key={`${activeLesson.id}-${index}`}
-                            block={block}
-                          />
-                        )
-                      )
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Contenu de la leçon en cours de préparation.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : activeStep.kind === "quiz" ? (
-              <motion.div
-                key={activeStep.id}
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <Card>
-                  <CardHeader className="border-b pb-5">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary">Quiz</Badge>
-                          {activeStep.minutes ? (
-                            <Badge variant="outline">{activeStep.minutes} min</Badge>
-                          ) : null}
-                        </div>
-
-                        <h2 className="text-2xl font-semibold tracking-tight">
-                          {activeStep.title}
-                        </h2>
-                        {activeStep.subtitle ? (
-                          <p className="mt-2 text-muted-foreground">
-                            {activeStep.subtitle}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {quiz?.id ? (
-                        <Button asChild className="gap-2">
-                          <Link href={`/quiz/${String(quiz.id)}?fresh=1`}>
-                            <Trophy className="h-4 w-4" />
-                            Commencer le quiz
-                          </Link>
-                        </Button>
-                      ) : null}
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="py-6">
-                    <p className="leading-8 text-[15px] text-muted-foreground">
-                      {activeStep.body ||
-                        "Teste maintenant ta compréhension du chapitre avec une série de questions ciblées."}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              <motion.div
-                key={activeStep.id}
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <Card>
-                  <CardHeader className="border-b pb-5">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary">
-                            {activeStep.kindLabel || "Étape"}
-                          </Badge>
-                          {activeStep.minutes ? (
-                            <Badge variant="outline">{activeStep.minutes} min</Badge>
-                          ) : null}
-                          {state.doneMap[activeStep.id] ? (
-                            <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
-                              Terminée
-                            </Badge>
-                          ) : null}
-                        </div>
-
-                        <h2 className="text-2xl font-semibold tracking-tight">
-                          {activeStep.title}
-                        </h2>
-
-                        {activeStep.subtitle ? (
-                          <p className="mt-2 text-muted-foreground">
-                            {activeStep.subtitle}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="shrink-0">
-                        <Button
-                          onClick={() => onCompleteStep(activeStep.id)}
-                          className="gap-2"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          {state.doneMap[activeStep.id]
-                            ? "Étape validée"
-                            : "J’ai compris"}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="py-6">
-                    <div className="space-y-4">
-                      {activeStep.katexPreview ? (
-                        <div className="overflow-x-auto rounded-xl border bg-muted/30 p-4">
-                          <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-                            Aperçu
-                          </div>
-                          <LatexBlock value={String(activeStep.katexPreview)} />
-                        </div>
-                      ) : null}
-
-                      <p className="whitespace-pre-line leading-8 text-[15px] text-muted-foreground">
-                        {activeStep.body || "Contenu en cours de préparation."}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            <div className="mt-5">
-              <Card>
-                <CardContent className="py-5 text-sm text-muted-foreground">
-                  Astuce : choisis une étape à gauche, lis son contenu complet à
-                  droite, puis valide-la quand tu l’as vraiment comprise.
-                </CardContent>
-              </Card>
+              <div className="mt-6 hidden border-t border-border/70 pt-4 md:block">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Vue actuelle
+                </p>
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                  Les leçons ne sont plus découpées dans le menu. Tout le
+                  contenu est désormais affiché dans la page principale.
+                </p>
+              </div>
             </div>
-          </section>
-        </div>
+          </div>
+        </aside>
+
+        <main className="min-w-0 flex-1 bg-background">
+          <div className="px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+            <div className="mx-auto max-w-4xl">
+              <section
+                id="main-section-overview"
+                className="scroll-mt-24 border-b border-border/70 pb-10"
+              >
+                <div className="mb-4 flex items-center gap-2 text-primary">
+                  <Target className="h-4 w-4" />
+                  <span className="text-sm font-semibold uppercase tracking-[0.18em]">
+                    Aperçu du chapitre
+                  </span>
+                </div>
+
+                <h2 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+                  Comprendre avant de pratiquer
+                </h2>
+
+                <p className="mt-4 text-[15px] leading-8 text-foreground/90 sm:text-[16px] lg:text-[17px]">
+                  Dans cette page, toutes les leçons restent visibles dans un
+                  flux continu. Tu lis, tu comprends, puis tu t’exerces juste
+                  après. L’objectif est d’avoir un parcours naturel, plus
+                  pédagogique, plus clair, et plus proche d’une vraie expérience
+                  d’apprentissage progressive.
+                </p>
+
+                <div className="mt-6 space-y-3 text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
+                  <p>• Tu lis les notions dans l’ordre.</p>
+                  <p>• Les exercices apparaissent au fur et à mesure.</p>
+                  <p>• Les résolutions détaillées sont visibles étape par étape.</p>
+                  <p>• Le quiz final mesure ta maîtrise réelle.</p>
+                </div>
+              </section>
+
+              <section className="mt-10 border-b border-border/70 pb-10">
+  <div className="mb-4 flex items-center gap-2 text-primary">
+    <BarChart3 className="h-4 w-4" />
+    <span className="text-sm font-semibold uppercase tracking-[0.18em]">
+      Ta progression
+    </span>
+  </div>
+
+  <div className="grid gap-6 sm:grid-cols-3">
+    
+    <div className="rounded-xl border border-border p-4">
+      <p className="text-xs uppercase text-muted-foreground">Progression</p>
+      <p className="mt-2 text-2xl font-bold">{Math.round(progress)}%</p>
+      <Progress value={progress} className="mt-3 h-2" />
+    </div>
+
+    <div className="rounded-xl border border-border p-4">
+      <p className="text-xs uppercase text-muted-foreground">Leçons terminées</p>
+      <p className="mt-2 text-2xl font-bold">
+        {state.doneCount}/{steps.length}
+      </p>
+    </div>
+
+    <div className="rounded-xl border border-border p-4">
+      <p className="text-xs uppercase text-muted-foreground">Dernier quiz</p>
+      <p className="mt-2 text-2xl font-bold">
+        {lastQuizPercent !== null ? `${lastQuizPercent}%` : "—"}
+      </p>
+    </div>
+
+  </div>
+
+  <div className="mt-6">
+    <Button
+      className="rounded-full gap-2"
+      onClick={() => scrollToSection("lessons")}
+    >
+      <PlayCircle className="h-4 w-4" />
+      Reprendre la leçon
+    </Button>
+  </div>
+</section>
+
+
+              <section id="main-section-lessons" className="scroll-mt-24 pt-10">
+                <div className="mb-6 flex items-center gap-2 text-primary">
+                  <BookOpen className="h-4 w-4" />
+                  <span className="text-sm font-semibold uppercase tracking-[0.18em]">
+                    Parcours du chapitre
+                  </span>
+                </div>
+
+                {filteredLessons.length > 0 ? (
+                  <div className="space-y-16">
+                    {filteredLessons.map(({ lesson, step }, index) => (
+                      <article
+                        key={lesson.id}
+                        id={`lesson-${lesson.id}`}
+                        className="scroll-mt-24 border-b border-border/70 pb-12"
+                      >
+                        <div className="mb-4 flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary" className="rounded-full">
+                            Leçon {index + 1}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-full">
+                            {lesson.durationMin ?? step.minutes ?? 10} min
+                          </Badge>
+                          {state.doneMap[step.id] ? (
+                            <Badge className="rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
+                              Terminée
+                            </Badge>
+                          ) : null}
+                        </div>
+
+                        <div className="flex flex-col gap-4 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <h3 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+                              {lesson.title}
+                            </h3>
+                            {lesson.summary ? (
+                              <p className="mt-3 max-w-3xl text-[14px] leading-7 text-muted-foreground sm:text-base">
+                                {lesson.summary}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="shrink-0">
+                            <Button
+                              onClick={() => handleMarkLessonDone(step.id)}
+                              className="gap-2 rounded-full"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              {state.doneMap[step.id]
+                                ? "Leçon validée"
+                                : "J’ai compris"}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="pt-8">
+                          {Array.isArray(lesson.content) &&
+                          lesson.content.length > 0 ? (
+                            <LessonRenderer blocks={lesson.content} />
+                          ) : (
+                            <p className="text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
+                              Contenu de la leçon en cours de préparation.
+                            </p>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border-b border-border/70 pb-8">
+                    <p className="text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
+                      Aucune leçon ne correspond à la recherche actuelle.
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              <section
+                id="main-section-summary"
+                className="scroll-mt-24 border-t border-border/70 pt-14"
+              >
+                <div className="mb-4 flex items-center gap-2 text-primary">
+                  <ListChecks className="h-4 w-4" />
+                  <span className="text-sm font-semibold uppercase tracking-[0.18em]">
+                    Résumé du chapitre
+                  </span>
+                </div>
+
+                <h3 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+                  Ce qu’il faut retenir
+                </h3>
+
+                {summaryStep ? (
+                  <div className="mt-5 space-y-4">
+                    {summaryStep.subtitle ? (
+                      <p className="text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
+                        {summaryStep.subtitle}
+                      </p>
+                    ) : null}
+
+                    <p className="text-[15px] leading-8 text-foreground/90 sm:text-[16px]">
+                      {summaryStep.body ||
+                        "On récapitule ici les idées essentielles, les règles à retenir et les erreurs fréquentes à éviter."}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-5 text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
+                    Le résumé sera ajouté ici.
+                  </p>
+                )}
+              </section>
+
+              <section
+                id="main-section-quiz"
+                className="scroll-mt-24 border-t border-border/70 pt-14"
+              >
+                <div className="mb-4 flex items-center gap-2 text-primary">
+                  <ClipboardCheck className="h-4 w-4" />
+                  <span className="text-sm font-semibold uppercase tracking-[0.18em]">
+                    Quiz final
+                  </span>
+                </div>
+
+                <h3 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+                  Vérifie ta maîtrise
+                </h3>
+
+                <p className="mt-4 text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
+                  Quand tu as terminé la lecture et les exercices, passe au quiz
+                  final pour mesurer ton niveau réel sur l’ensemble du chapitre.
+                </p>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  {quiz?.id ? (
+                    <Button asChild className="gap-2 rounded-full">
+                      <Link prefetch href={`/quiz/${String(quiz.id)}?fresh=1`}>
+                        <Trophy className="h-4 w-4" />
+                        Lancer le quiz final
+                      </Link>
+                    </Button>
+                  ) : null}
+
+                  {lastQuizPercent !== null ? (
+                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                      <ArrowRight className="h-4 w-4" />
+                      Dernier score : {lastQuizPercent}%
+                    </span>
+                  ) : null}
+                </div>
+
+                {quizStep?.body ? (
+                  <p className="mt-5 text-[15px] leading-8 text-foreground/90 sm:text-[16px]">
+                    {quizStep.body}
+                  </p>
+                ) : null}
+              </section>
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );
