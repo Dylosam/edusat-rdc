@@ -21,7 +21,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Un polynôme possède uniquement des exposants entiers naturels et aucune variable au dénominateur.",
         points: 1,
-        lessonId: "lesson-definition-polynome",
       },
       {
         id: "q-polynome-2",
@@ -33,7 +32,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Le degré d’un polynôme est le plus grand exposant de x dont le coefficient est non nul.",
         points: 1,
-        lessonId: "lesson-degre-polynome",
       },
       {
         id: "q-polynome-3",
@@ -45,7 +43,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "On additionne les termes semblables : 2x² + x² = 3x² et 3x - x = 2x.",
         points: 1,
-        lessonId: "lesson-operations-polynomes",
       },
       {
         id: "q-polynome-4",
@@ -57,7 +54,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "On développe : (x + 2)(x + 3) = x² + 3x + 2x + 6 = x² + 5x + 6.",
         points: 1,
-        lessonId: "lesson-operations-polynomes",
       },
       {
         id: "q-polynome-5",
@@ -68,7 +64,6 @@ export const mockQuizzes: Quiz[] = [
         correctAnswer: "0",
         explanation: "Un polynôme constant non nul est de degré 0.",
         points: 1,
-        lessonId: "lesson-degre-polynome",
       },
     ],
   },
@@ -94,7 +89,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Le dénominateur ne peut pas être nul. On impose x - 2 ≠ 0, donc x ≠ 2.",
         points: 1,
-        lessonId: "lesson-mm5-9-introduction",
       },
       {
         id: "q-mm59-2",
@@ -106,7 +100,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Une fonction polynomiale est définie pour tous les réels.",
         points: 1,
-        lessonId: "lesson-mm5-9-polynomes",
       },
       {
         id: "q-mm59-3",
@@ -118,7 +111,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Pour une racine carrée, on impose que l’intérieur soit positif ou nul : x - 3 ≥ 0.",
         points: 1,
-        lessonId: "lesson-mm5-9-racines-paires",
       },
       {
         id: "q-mm59-4",
@@ -130,7 +122,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Une racine d’indice impair est définie pour tous les réels.",
         points: 1,
-        lessonId: "lesson-mm5-9-racines-impaires",
       },
       {
         id: "q-mm59-5",
@@ -142,7 +133,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Une racine carrée au dénominateur impose une condition stricte : x - 4 > 0.",
         points: 1,
-        lessonId: "lesson-mm5-9-racines-denominateur",
       },
       {
         id: "q-mm59-6",
@@ -159,7 +149,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "La racine impose x + 1 ≥ 0, donc x ≥ -1. Le dénominateur impose x ≠ 3. On combine les deux.",
         points: 1,
-        lessonId: "lesson-mm5-9-combinaisons",
       },
       {
         id: "q-mm59-7",
@@ -171,7 +160,6 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "Au numérateur, on impose x + 2 ≥ 0. Au dénominateur, on impose x - 1 > 0. L’intersection donne x > 1.",
         points: 1,
-        lessonId: "lesson-mm5-9-combinaisons",
       },
       {
         id: "q-mm59-8",
@@ -187,18 +175,29 @@ export const mockQuizzes: Quiz[] = [
         explanation:
           "La bonne méthode consiste à repérer toutes les restrictions puis à prendre leur intersection.",
         points: 1,
-        lessonId: "lesson-mm5-9-methode",
       },
     ],
   },
 ];
 
+function normalizeKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export async function getQuizById(id: string): Promise<Quiz | null> {
-  return mockQuizzes.find((quiz) => quiz.id === id) ?? null;
+  const key = normalizeKey(id);
+  return mockQuizzes.find((quiz) => normalizeKey(quiz.id) === key) ?? null;
 }
 
 export async function getQuizByChapterId(
   chapterId: string
 ): Promise<Quiz | null> {
-  return mockQuizzes.find((quiz) => quiz.chapterId === chapterId) ?? null;
+  const key = normalizeKey(chapterId);
+  return (
+    mockQuizzes.find((quiz) => normalizeKey(quiz.chapterId) === key) ?? null
+  );
 }

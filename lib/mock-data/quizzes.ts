@@ -63,7 +63,6 @@ export const quizzes: Quiz[] = [
       },
     ],
   },
-
   {
     id: "quiz-mm5-9",
     chapterId: "mm5-9",
@@ -92,8 +91,7 @@ export const quizzes: Quiz[] = [
         question: "Quel est le domaine de définition de h(x) = √(x - 3) ?",
         choices: ["x > 3", "x ≥ 3", "x < 3", "ℝ"],
         answerIndex: 1,
-        explanation:
-          "Pour une racine carrée, on impose x - 3 ≥ 0.",
+        explanation: "Pour une racine carrée, on impose x - 3 ≥ 0.",
       },
       {
         id: "q-mm59-4",
@@ -151,10 +149,20 @@ export const quizzes: Quiz[] = [
   },
 ];
 
+function normalizeKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export function getQuizById(id: string) {
-  return quizzes.find((quiz) => quiz.id === id);
+  const key = normalizeKey(id);
+  return quizzes.find((quiz) => normalizeKey(quiz.id) === key);
 }
 
 export function getQuizByChapterId(chapterId: string) {
-  return quizzes.find((quiz) => quiz.chapterId === chapterId);
+  const key = normalizeKey(chapterId);
+  return quizzes.find((quiz) => normalizeKey(quiz.chapterId) === key);
 }

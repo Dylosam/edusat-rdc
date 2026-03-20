@@ -211,9 +211,18 @@ function uid() {
 /* ---------------------------------------------
   Events matching
 --------------------------------------------- */
-type DayEvent =
-  | (OfficialEvent & { source: "official" })
-  | (CustomEvent & { type: "perso"; source: "custom" });
+type OfficialDayEvent = OfficialEvent & { source: "official" };
+type CustomDayEvent = CustomEvent & { type: "perso"; source: "custom" };
+
+type DayEvent = OfficialDayEvent | CustomDayEvent;
+
+function isCustomDayEvent(event: DayEvent): event is CustomDayEvent {
+  return event.source === "custom";
+}
+
+function isOfficialDayEvent(event: DayEvent): event is OfficialDayEvent {
+  return event.source === "official";
+}
 
 function getEventsForDayYMD(dayYMD: string, officialEvents: OfficialEvent[], customEvents: CustomEvent[]) {
   const hits: DayEvent[] = [];
@@ -498,8 +507,8 @@ export default function CalendarPage() {
                       const isWeekend = col >= 5;
 
                       const events = getEventsForDayYMD(ymd, OFFICIAL_EVENTS, custom.events);
-                      const types = uniqueTypes(events);
-                      const firstCustom = events.find((e) => e.source === "custom");
+const types = uniqueTypes(events);
+const firstCustom = events.find(isCustomDayEvent);
 
                       return (
                         <button
@@ -613,7 +622,7 @@ export default function CalendarPage() {
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Événements</div>
 
-                    {selectedDayEvents.filter((e) => e.source === "official").length === 0 ? (
+                    {selectedDayEvents.filter(isOfficialDayEvent).length === 0 ? (
                       <div className="text-sm text-muted-foreground">Aucun.</div>
                     ) : (
                       <div className="space-y-2">
@@ -653,7 +662,7 @@ export default function CalendarPage() {
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Mes événements</div>
 
-                    {selectedDayEvents.filter((e) => e.source === "custom").length === 0 ? (
+                    {selectedDayEvents.filter(isCustomDayEvent).length === 0 ? (
                       <div className="text-sm text-muted-foreground">
                         Aucun événement personnalisé.
                       </div>

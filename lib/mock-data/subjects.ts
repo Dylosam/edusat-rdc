@@ -73,10 +73,20 @@ export const subjects: Subject[] = [
   },
 ];
 
+function normalizeKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export function getSubjectBySlug(slug: string) {
-  return subjects.find((subject) => subject.slug === slug);
+  const key = normalizeKey(slug);
+  return subjects.find((subject) => normalizeKey(subject.slug) === key);
 }
 
 export function getSubjectById(id: string) {
-  return subjects.find((subject) => subject.id === id);
+  const key = normalizeKey(id);
+  return subjects.find((subject) => normalizeKey(subject.id) === key);
 }
