@@ -1,3 +1,5 @@
+// lib/mock-data/quizzes.ts
+
 export type QuizQuestion = {
   id: string;
   question: string;
@@ -63,6 +65,7 @@ export const quizzes: Quiz[] = [
       },
     ],
   },
+
   {
     id: "quiz-mm5-9",
     chapterId: "mm5-9",
@@ -157,12 +160,12 @@ function normalizeKey(value: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-export function getQuizById(id: string) {
+export function getQuizById(id: string): Quiz | null {
   const key = normalizeKey(id);
-  return quizzes.find((quiz) => normalizeKey(quiz.id) === key);
+  return quizzes.find((quiz) => normalizeKey(quiz.id) === key) ?? null;
 }
 
-export function getQuizByChapterId(chapterId: string) {
+export function getQuizByChapterId(chapterId: string): Quiz | null {
   const key = normalizeKey(chapterId);
-  return quizzes.find((quiz) => normalizeKey(quiz.chapterId) === key);
+  return quizzes.find((quiz) => normalizeKey(quiz.chapterId) === key) ?? null;
 }

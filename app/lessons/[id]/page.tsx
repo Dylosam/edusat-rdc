@@ -1,258 +1,140 @@
-"use client";
+import { getLessonById, getLessonBlocks } from "@/lib/supabase/queries";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  BookOpen,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Lightbulb,
-} from "lucide-react";
-import { toast } from "sonner";
-
-import { DashboardNav } from "@/components/dashboard-nav";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-
-import { getLessonById, getPrevNextLesson } from "@/lib/data/lessons";
-import { isLessonCompleted, toggleLessonCompleted } from "@/lib/progress";
-
-import { LatexBlock } from "@/components/math/latex";
-
-function normalizeLatex(value?: string) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function ContentBlock({ block }: { block: any }) {
-  if (block.type === "text") {
-    return <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{block.value}</p>;
-  }
-
-  if (block.type === "tip") {
-    return (
-      <div className="rounded-lg border bg-muted/40 p-4 flex gap-3">
-        <div className="mt-0.5">
-          <Lightbulb className="h-5 w-5 text-primary" />
-        </div>
-        <p className="text-sm leading-relaxed whitespace-pre-line">
-          <span className="font-semibold">Astuce :</span> {block.value}
-        </p>
-      </div>
-    );
-  }
-
-  if (block.type === "example") {
-    return (
-      <div className="rounded-lg border p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <BookOpen className="h-4 w-4 text-primary" />
-          <p className="font-semibold">{block.title || "Exemple"}</p>
-        </div>
-        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{block.value}</p>
-      </div>
-    );
-  }
-
-  if (block.type === "formula") {
-    const latex = normalizeLatex(block.value);
-    return (
-      <div className="rounded-lg border bg-muted/40 p-4 overflow-x-auto">
-        <div className="text-sm text-muted-foreground mb-2">Formule</div>
-        {latex ? <LatexBlock value={latex} /> : null}
-      </div>
-    );
-  }
-
-  return null;
-}
-
-export default function LessonPage() {
-  const router = useRouter();
-  const params = useParams();
-  const lessonId = (params?.id as string) || "";
-
-  const lesson = useMemo(() => getLessonById(lessonId), [lessonId]);
-
-  const nav = useMemo(() => {
-    if (!lesson) return { prev: null, next: null, index: 0, total: 0 };
-    return getPrevNextLesson(lesson.chapterId, lesson.id);
-  }, [lesson]);
-
-  const [mounted, setMounted] = useState(false);
-  const [completed, setCompleted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (!lesson) return;
-    if (!mounted) return;
-    setCompleted(isLessonCompleted(lesson.chapterId, lesson.id));
-  }, [lesson, mounted]);
-
-  useEffect(() => {
-    if (!lesson) return;
-
-    const handler = () => {
-      setCompleted(isLessonCompleted(lesson.chapterId, lesson.id));
-    };
-
-    window.addEventListener("edustat_progress_updated", handler);
-    return () => window.removeEventListener("edustat_progress_updated", handler);
-  }, [lesson]);
-
-  const onToggleComplete = () => {
-    if (!lesson) return;
-    const nowCompleted = toggleLessonCompleted(lesson.chapterId, lesson.id);
-    setCompleted(nowCompleted);
-    toast(nowCompleted ? "Leçon marquée comme terminée ✅" : "Leçon remise en cours ↩️");
+type LessonPageProps = {
+  params: {
+    id: string;
   };
+};
+
+type LessonBlockType = "text" | "formula" | "example" | "tip" | "exercise" | "richText";
+
+type LessonBlock = {
+  id: string;
+  lesson_id: string;
+  order_index: number;
+  type: LessonBlockType;
+  payload: {
+    value?: string;
+    title?: string;
+    question?: string;
+    choices?: string[];
+    answerIndex?: number;
+    explanation?: string;
+    segments?: Array<{
+      type: string;
+      value?: string;
+      bold?: boolean;
+      italic?: boolean;
+    }>;
+  };
+};
+
+export default async function LessonPage({ params }: LessonPageProps) {
+  const lesson = await getLessonById(params.id);
+  const blocks = (await getLessonBlocks(params.id)) as LessonBlock[];
 
   if (!lesson) {
     return (
-      <div className="min-h-screen bg-background">
-        <DashboardNav />
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <Card>
-            <CardHeader>
-              <CardTitle>Leçon introuvable</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                Cette leçon n’existe pas (ou son identifiant est incorrect).
-              </p>
-              <Button asChild>
-                <Link href="/subjects">Retour aux matières</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </main>
-      </div>
+      <main className="mx-auto max-w-3xl px-4 py-10">
+        <h1 className="text-2xl font-bold">Leçon introuvable</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Cette leçon n’existe pas ou n’est pas publiée.
+        </p>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardNav />
+    <main className="mx-auto max-w-3xl px-4 py-10">
+      <header className="mb-8">
+        <p className="text-sm text-muted-foreground">
+          {lesson.minutes} min
+        </p>
+        <h1 className="mt-2 text-3xl font-bold">{lesson.title}</h1>
+        {lesson.summary ? (
+          <p className="mt-3 text-base text-muted-foreground">{lesson.summary}</p>
+        ) : null}
+      </header>
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          className="max-w-4xl"
-        >
-          <Button variant="ghost" onClick={() => router.back()} className="mb-6">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Retour
-          </Button>
+      <section className="space-y-6">
+        {blocks.map((block) => {
+          switch (block.type) {
+            case "text":
+              return (
+                <p key={block.id} className="text-base leading-7">
+                  {block.payload.value}
+                </p>
+              );
 
-          <div className="mb-8">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <Badge variant="secondary">Leçon</Badge>
+            case "formula":
+              return (
+                <div
+                  key={block.id}
+                  className="rounded-2xl border bg-muted/40 px-4 py-4 text-center text-lg font-medium"
+                >
+                  {block.payload.value}
+                </div>
+              );
 
-              <Badge variant="outline">
-                {nav.total > 0 ? `Leçon ${nav.index}/${nav.total}` : "Leçon"}
-              </Badge>
+            case "example":
+              return (
+                <div key={block.id} className="rounded-2xl border p-4">
+                  {block.payload.title ? (
+                    <h3 className="mb-2 text-lg font-semibold">{block.payload.title}</h3>
+                  ) : null}
+                  <p className="leading-7 whitespace-pre-line">{block.payload.value}</p>
+                </div>
+              );
 
-              {lesson.durationMin ? (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  {lesson.durationMin} min
-                </Badge>
-              ) : null}
+            case "tip":
+              return (
+                <div key={block.id} className="rounded-2xl border p-4">
+                  <h3 className="mb-2 text-lg font-semibold">Astuce</h3>
+                  <p className="leading-7 whitespace-pre-line">{block.payload.value}</p>
+                </div>
+              );
 
-              {lesson.isPremium ? <Badge>Premium</Badge> : null}
+            case "exercise":
+              return (
+                <div key={block.id} className="rounded-2xl border p-4">
+                  {block.payload.title ? (
+                    <h3 className="mb-3 text-lg font-semibold">{block.payload.title}</h3>
+                  ) : null}
 
-              {mounted && completed ? (
-                <Badge className="flex items-center gap-1 bg-green-600 text-white">
-                  <CheckCircle className="h-4 w-4" />
-                  Terminée
-                </Badge>
-              ) : null}
-            </div>
+                  {block.payload.question ? (
+                    <p className="mb-4 font-medium">{block.payload.question}</p>
+                  ) : null}
 
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2 font-serif">{lesson.title}</h1>
-            {lesson.summary ? <p className="text-muted-foreground">{lesson.summary}</p> : null}
-          </div>
+                  {Array.isArray(block.payload.choices) && block.payload.choices.length > 0 ? (
+                    <ul className="space-y-2">
+                      {block.payload.choices.map((choice, index) => (
+                        <li key={`${block.id}-${index}`} className="rounded-xl border px-3 py-2">
+                          {choice}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Contenu</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {lesson.content.map((block: any, i: number) => (
-                <ContentBlock key={`${lesson.id}-${i}`} block={block} />
-              ))}
-            </CardContent>
-          </Card>
+                  {block.payload.explanation ? (
+                    <div className="mt-4 rounded-xl bg-muted/40 p-3">
+                      <p className="text-sm leading-6">{block.payload.explanation}</p>
+                    </div>
+                  ) : null}
+                </div>
+              );
 
-          <div className="mt-8 flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                onClick={onToggleComplete}
-                variant={mounted && completed ? "secondary" : "default"}
-                className="w-full sm:w-auto"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {mounted && completed ? "Marquée terminée (annuler)" : "Marquer comme terminé"}
-              </Button>
+            case "richText":
+              return (
+                <div key={block.id} className="leading-7">
+                  {block.payload.value ?? "Bloc richText non encore géré."}
+                </div>
+              );
 
-              <Button asChild variant="outline" className="w-full sm:w-auto">
-                <Link href={`/chapters/${lesson.chapterId}?tab=course`}>Revenir au chapitre</Link>
-              </Button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-between">
-              <div>
-                {nav.prev ? (
-                  <Button asChild variant="outline" className="w-full sm:w-auto">
-                    <Link href={`/lessons/${nav.prev.id}`}>
-                      <ChevronLeft className="mr-2 h-4 w-4" />
-                      Leçon précédente
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button variant="outline" className="w-full sm:w-auto" disabled>
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    Leçon précédente
-                  </Button>
-                )}
-              </div>
-
-              <div>
-                {nav.next ? (
-                  <Button asChild className="w-full sm:w-auto">
-                    <Link href={`/lessons/${nav.next.id}`}>
-                      Leçon suivante
-                      <ChevronRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button className="w-full sm:w-auto" disabled>
-                    Fin des leçons
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Button asChild variant="ghost" className="w-full sm:w-auto">
-                <Link href="/subjects">
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  Retour aux matières
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      </main>
-    </div>
+            default:
+              return null;
+          }
+        })}
+      </section>
+    </main>
   );
 }

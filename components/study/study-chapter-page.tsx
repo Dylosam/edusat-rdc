@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   PlayCircle,
@@ -24,10 +23,9 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
-import { getChapterById } from "@/lib/mock-data/chapters";
+
 import LessonRenderer from "@/components/study/lesson-renderer";
 import { readProgressStore } from "@/lib/progress/index";
-import { findQuizByChapterId } from "@/lib/study/quiz-link";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -41,7 +39,11 @@ import {
   resetChapterStudyState,
 } from "@/lib/study/progress";
 
-import { getLessonById } from "@/lib/data/lessons";
+import {
+  getChapterById,
+  getLessonsByChapter,
+  getQuizByChapterId,
+} from "@/lib/supabase/queries";
 
 const EMPTY_STATE = {
   progressPercent: 0,
@@ -55,6 +57,42 @@ const EMPTY_STATE = {
 };
 
 type MainSection = "overview" | "lessons" | "summary" | "quiz";
+
+type LessonBlock = {
+  id?: string;
+  type: string;
+  value?: string;
+  title?: string;
+  content?: string;
+  prompt?: string;
+  question?: string;
+  choices?: string[];
+  answerIndex?: number;
+  explanation?: string;
+  steps?: string[];
+  segments?: Array<{ value?: string }>;
+  [key: string]: any;
+};
+
+type LessonVM = {
+  id: string;
+  title: string;
+  summary?: string;
+  minutes: number;
+  contentBlocks: LessonBlock[];
+  order: number;
+};
+
+type ChapterVM = {
+  id: string;
+  title: string;
+  summary?: string;
+  estimatedMinutes: number;
+  subjectId?: string;
+  subjectSlug?: string;
+  subjectTitle?: string;
+  order: number;
+};
 
 function SectionAnchorButton({
   label,
@@ -92,10 +130,19 @@ function SectionAnchorButton({
 export default function StudyChapterPage() {
   const params = useParams();
   const router = useRouter();
-  const prefersReducedMotion = useReducedMotion();
-  const chapterId = params.id as string;
 
-  const steps = useMemo(() => buildStudySteps(chapterId), [chapterId]);
+  const chapterId = useMemo(() => {
+    const raw = params?.id;
+    if (typeof raw === "string") return raw;
+    if (Array.isArray(raw) && raw.length > 0) return raw[0];
+    return "";
+  }, [params]);
+
+  const [quizRaw, setQuizRaw] = useState<any | null>(null);
+  const steps = useMemo(
+    () => (chapterId ? buildStudySteps(chapterId) : []),
+    [chapterId]
+  );
 
   const [mounted, setMounted] = useState(false);
   const [state, setState] = useState(EMPTY_STATE);
@@ -103,25 +150,87 @@ export default function StudyChapterPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState<MainSection>("overview");
 
+  const [chapterRaw, setChapterRaw] = useState<any | null>(null);
+  const [lessonsRaw, setLessonsRaw] = useState<any[]>([]);
+  const [contentLoading, setContentLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !chapterId) return;
     setState(getChapterStudyState(chapterId, steps));
   }, [mounted, chapterId, steps]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadContent() {
+      if (!chapterId) {
+        if (active) {
+          setContentLoading(false);
+          setErrorMessage("ID de chapitre manquant.");
+        }
+        return;
+      }
+
+      try {
+        setContentLoading(true);
+        setErrorMessage("");
+
+        const [chapterData, lessonsData, quizData] = await Promise.all([
+          getChapterById(chapterId),
+          getLessonsByChapter(chapterId),
+          getQuizByChapterId(chapterId),
+        ]);
+
+        if (!active) return;
+
+        if (!chapterData) {
+          setErrorMessage("Chapitre introuvable dans la base.");
+          setChapterRaw(null);
+          setLessonsRaw([]);
+          setQuizRaw(null);
+          return;
+        }
+
+        setChapterRaw(chapterData);
+        setLessonsRaw(Array.isArray(lessonsData) ? lessonsData : []);
+        setQuizRaw(quizData ?? null);
+      } catch (error) {
+        console.error("Erreur chargement chapitre:", error);
+
+        if (!active) return;
+
+        setErrorMessage(
+          error instanceof Error ? error.message : "Erreur inconnue"
+        );
+      } finally {
+        if (active) {
+          setContentLoading(false);
+        }
+      }
+    }
+
+    loadContent();
+
+    return () => {
+      active = false;
+    };
+  }, [chapterId]); // ✅ IMPORTANT : PAS de params ici
 
   const progress = mounted ? state.progressPercent : 0;
   const isCompleted = progress >= 100;
 
-  const quiz = useMemo(() => findQuizByChapterId(chapterId), [chapterId]);
+  const quiz = useMemo(() => quizRaw, [quizRaw]);
 
   const lastQuizPercent = useMemo(() => {
     if (!mounted || !quiz?.id) return null;
 
     const store = readProgressStore();
-    const result = (store.quizResults ?? {})[String(quiz.id)] as any;
+    const result = (store?.quizResults ?? {})[String(quiz.id)] as any;
 
     return typeof result?.percentage === "number"
       ? Math.round(result.percentage)
@@ -142,23 +251,87 @@ export default function StudyChapterPage() {
     () => steps.find((step) => String(step.kind) === "quiz") ?? null,
     [steps]
   );
-  const chapter = useMemo(() => getChapterById(chapterId), [chapterId]);
+
+  const chapter: ChapterVM | null = useMemo(() => {
+    if (!chapterRaw) return null;
+
+    return {
+      id: String(chapterRaw.id),
+      title: String(chapterRaw.title ?? "Chapitre"),
+      summary: String(chapterRaw.summary ?? chapterRaw.description ?? ""),
+      estimatedMinutes: Number(
+        chapterRaw.estimated_minutes ?? chapterRaw.estimatedMinutes ?? 0
+      ),
+      subjectId: chapterRaw.subject_id
+        ? String(chapterRaw.subject_id)
+        : undefined,
+      subjectSlug: chapterRaw.subjects?.slug
+        ? String(chapterRaw.subjects.slug)
+        : undefined,
+      subjectTitle: chapterRaw.subjects?.title
+        ? String(chapterRaw.subjects.title)
+        : undefined,
+      order: Number(chapterRaw.order_index ?? chapterRaw.order ?? 1),
+    };
+  }, [chapterRaw]);
+
+  useEffect(() => {
+    if (!chapter) return;
+
+    setState((prev) => ({
+      ...prev,
+      meta: {
+        ...prev.meta,
+        title: chapter.title,
+        estimatedMinutes:
+          chapter.estimatedMinutes || prev.meta.estimatedMinutes,
+        subjectLabel: chapter.subjectTitle ?? prev.meta.subjectLabel,
+      },
+    }));
+  }, [chapter]);
 
   const lessonsWithData = useMemo(() => {
-    return lessonSteps
-      .map((step) => {
-        const lessonId = String(step.id).replace("lesson:", "");
-        const lesson = getLessonById(lessonId);
-
-        return lesson
-          ? {
-              step,
-              lesson,
-            }
-          : null;
+    const normalizedLessons: LessonVM[] = (lessonsRaw ?? []).map(
+      (lesson: any, index: number) => ({
+        id: String(lesson.id),
+        title: String(lesson.title ?? `Leçon ${index + 1}`),
+        summary: String(lesson.summary ?? ""),
+        minutes: Number(lesson.minutes ?? 10),
+        contentBlocks: Array.isArray(lesson.content_blocks)
+          ? lesson.content_blocks.map((block: any) => ({
+              id: String(block.id),
+              type: String(block.type),
+              ...(block.payload ?? {}),
+            }))
+          : Array.isArray(lesson.contentBlocks)
+          ? lesson.contentBlocks
+          : [],
+        order: Number(lesson.order_index ?? lesson.order ?? index + 1),
       })
-      .filter(Boolean) as Array<{ step: any; lesson: any }>;
-  }, [lessonSteps]);
+    );
+
+    normalizedLessons.sort((a, b) => a.order - b.order);
+
+    return normalizedLessons.map((lesson, index) => {
+      const matchingStep =
+        lessonSteps.find(
+          (step) => String(step.id).replace("lesson:", "") === lesson.id
+        ) ??
+        ({
+          id: `lesson:${lesson.id}`,
+          kind: "lesson",
+          title: lesson.title,
+          subtitle: lesson.summary,
+          minutes: lesson.minutes,
+        } as any);
+
+      return {
+        step: matchingStep,
+        lesson,
+        index,
+      };
+    });
+  }, [lessonsRaw, lessonSteps]);
 
   const filteredLessons = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -170,16 +343,21 @@ export default function StudyChapterPage() {
         lesson?.summary ?? step?.subtitle ?? ""
       ).toLowerCase();
 
-      const blocksText = Array.isArray(lesson?.content)
-        ? lesson.content
-            .map((block: any) => {
+      const blocksText = Array.isArray(lesson?.contentBlocks)
+        ? lesson.contentBlocks
+            .map((block: LessonBlock) => {
               if (typeof block?.value === "string") return block.value;
               if (typeof block?.content === "string") return block.content;
               if (typeof block?.prompt === "string") return block.prompt;
+              if (typeof block?.question === "string") return block.question;
+              if (typeof block?.title === "string") return block.title;
+              if (typeof block?.explanation === "string")
+                return block.explanation;
+              if (Array.isArray(block?.choices)) return block.choices.join(" ");
               if (Array.isArray(block?.steps)) return block.steps.join(" ");
               if (Array.isArray(block?.segments)) {
                 return block.segments
-                  .map((seg: any) => String(seg?.value ?? ""))
+                  .map((seg) => String(seg?.value ?? ""))
                   .join(" ");
               }
               return "";
@@ -198,22 +376,22 @@ export default function StudyChapterPage() {
 
   const totalEstimatedMinutes =
     state.meta.estimatedMinutes ||
+    chapter?.estimatedMinutes ||
     lessonsWithData.reduce((acc, item) => {
-      return acc + Number(item.lesson?.durationMin ?? item.step?.minutes ?? 0);
+      return acc + Number(item.lesson?.minutes ?? item.step?.minutes ?? 0);
     }, 0);
 
   function handleBack() {
-  if (chapter?.subjectSlug) {
-    router.push(`/subjects/${chapter.subjectSlug}`);
-    return;
+    if (chapter?.subjectSlug) {
+      router.push(`/subjects/${chapter.subjectSlug}`);
+      return;
+    }
+
+    router.push("/subjects");
   }
 
-  router.push("/subjects");
-}
-
-
-
   function handleMarkLessonDone(stepId: string) {
+    if (!chapterId) return;
     markStepDone(chapterId, stepId);
     const next = getChapterStudyState(chapterId, steps);
     setState(next);
@@ -228,10 +406,35 @@ export default function StudyChapterPage() {
   }
 
   function resetStudy() {
+    if (!chapterId) return;
     resetChapterStudyState(chapterId);
     const next = getChapterStudyState(chapterId, steps);
     setState(next);
   }
+
+  if (contentLoading) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] bg-background">
+        <div className="mx-auto flex min-h-[70vh] max-w-7xl items-center justify-center px-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] bg-background">
+        <div className="mx-auto max-w-4xl px-4 py-10">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200">
+            {errorMessage}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!chapter) return null;
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
@@ -251,7 +454,7 @@ export default function StudyChapterPage() {
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1">
                   <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
-                  {state.meta.subjectLabel}
+                  {chapter.subjectTitle ?? state.meta.subjectLabel}
                 </Badge>
 
                 <Badge variant="outline" className="rounded-full px-3 py-1">
@@ -265,7 +468,7 @@ export default function StudyChapterPage() {
               </div>
 
               <h1 className="mt-4 font-serif text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-                {state.meta.title}
+                {chapter.title}
               </h1>
 
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -274,7 +477,7 @@ export default function StudyChapterPage() {
                   {totalEstimatedMinutes} min
                 </span>
 
-                <span className="hidden sm:inline text-muted-foreground/50">
+                <span className="hidden text-muted-foreground/50 sm:inline">
                   •
                 </span>
 
@@ -292,9 +495,8 @@ export default function StudyChapterPage() {
               </div>
 
               <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-                Tout le chapitre se lit maintenant dans une seule grande page.
-                Tu avances comme dans un vrai parcours d’apprentissage, avec les
-                exercices et les corrections détaillées au fil de la lecture.
+                {chapter.summary ||
+                  "Tout le chapitre se lit maintenant dans une seule grande page. Tu avances comme dans un vrai parcours d’apprentissage, avec les exercices et les corrections détaillées au fil de la lecture."}
               </p>
             </div>
 
@@ -323,7 +525,7 @@ export default function StudyChapterPage() {
 
               {quiz?.id ? (
                 <Button asChild className="gap-2 rounded-full">
-                  <Link prefetch href={`/quiz/${String(quiz.id)}?fresh=1`}>
+                  <Link href={`/quiz/${String(quiz.id)}?fresh=1`}>
                     <Trophy className="h-4 w-4" />
                     Quiz final
                     {lastQuizPercent !== null ? (
@@ -397,7 +599,7 @@ export default function StudyChapterPage() {
                   <Progress value={progress} className="h-2" />
                 </div>
 
-                <div className="hidden md:grid grid-cols-2 gap-3 text-sm">
+                <div className="hidden grid-cols-2 gap-3 text-sm md:grid">
                   <div className="border-b border-border/60 pb-3">
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                       Fait
@@ -422,40 +624,30 @@ export default function StudyChapterPage() {
                   label="Aperçu"
                   icon={Target}
                   active={activeSection === "overview"}
-                  compact={!sidebarOpen || false}
+                  compact={!sidebarOpen}
                   onClick={() => scrollToSection("overview")}
                 />
                 <SectionAnchorButton
                   label="Leçons"
                   icon={BookOpen}
                   active={activeSection === "lessons"}
-                  compact={!sidebarOpen || false}
+                  compact={!sidebarOpen}
                   onClick={() => scrollToSection("lessons")}
                 />
                 <SectionAnchorButton
                   label="Résumé"
                   icon={ListChecks}
                   active={activeSection === "summary"}
-                  compact={!sidebarOpen || false}
+                  compact={!sidebarOpen}
                   onClick={() => scrollToSection("summary")}
                 />
                 <SectionAnchorButton
                   label="Quiz final"
                   icon={ClipboardCheck}
                   active={activeSection === "quiz"}
-                  compact={!sidebarOpen || false}
+                  compact={!sidebarOpen}
                   onClick={() => scrollToSection("quiz")}
                 />
-              </div>
-
-              <div className="mt-6 hidden border-t border-border/70 pt-4 md:block">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Vue actuelle
-                </p>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  Les leçons ne sont plus découpées dans le menu. Tout le
-                  contenu est désormais affiché dans la page principale.
-                </p>
               </div>
             </div>
           </div>
@@ -478,68 +670,12 @@ export default function StudyChapterPage() {
                 <h2 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl">
                   Comprendre avant de pratiquer
                 </h2>
-
-                <p className="mt-4 text-[15px] leading-8 text-foreground/90 sm:text-[16px] lg:text-[17px]">
-                  Dans cette page, toutes les leçons restent visibles dans un
-                  flux continu. Tu lis, tu comprends, puis tu t’exerces juste
-                  après. L’objectif est d’avoir un parcours naturel, plus
-                  pédagogique, plus clair, et plus proche d’une vraie expérience
-                  d’apprentissage progressive.
-                </p>
-
-                <div className="mt-6 space-y-3 text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
-                  <p>• Tu lis les notions dans l’ordre.</p>
-                  <p>• Les exercices apparaissent au fur et à mesure.</p>
-                  <p>• Les résolutions détaillées sont visibles étape par étape.</p>
-                  <p>• Le quiz final mesure ta maîtrise réelle.</p>
-                </div>
               </section>
 
-              <section className="mt-10 border-b border-border/70 pb-10">
-  <div className="mb-4 flex items-center gap-2 text-primary">
-    <BarChart3 className="h-4 w-4" />
-    <span className="text-sm font-semibold uppercase tracking-[0.18em]">
-      Ta progression
-    </span>
-  </div>
-
-  <div className="grid gap-6 sm:grid-cols-3">
-    
-    <div className="rounded-xl border border-border p-4">
-      <p className="text-xs uppercase text-muted-foreground">Progression</p>
-      <p className="mt-2 text-2xl font-bold">{Math.round(progress)}%</p>
-      <Progress value={progress} className="mt-3 h-2" />
-    </div>
-
-    <div className="rounded-xl border border-border p-4">
-      <p className="text-xs uppercase text-muted-foreground">Leçons terminées</p>
-      <p className="mt-2 text-2xl font-bold">
-        {state.doneCount}/{steps.length}
-      </p>
-    </div>
-
-    <div className="rounded-xl border border-border p-4">
-      <p className="text-xs uppercase text-muted-foreground">Dernier quiz</p>
-      <p className="mt-2 text-2xl font-bold">
-        {lastQuizPercent !== null ? `${lastQuizPercent}%` : "—"}
-      </p>
-    </div>
-
-  </div>
-
-  <div className="mt-6">
-    <Button
-      className="rounded-full gap-2"
-      onClick={() => scrollToSection("lessons")}
-    >
-      <PlayCircle className="h-4 w-4" />
-      Reprendre la leçon
-    </Button>
-  </div>
-</section>
-
-
-              <section id="main-section-lessons" className="scroll-mt-24 pt-10">
+              <section
+                id="main-section-lessons"
+                className="scroll-mt-24 pt-10"
+              >
                 <div className="mb-6 flex items-center gap-2 text-primary">
                   <BookOpen className="h-4 w-4" />
                   <span className="text-sm font-semibold uppercase tracking-[0.18em]">
@@ -560,13 +696,8 @@ export default function StudyChapterPage() {
                             Leçon {index + 1}
                           </Badge>
                           <Badge variant="outline" className="rounded-full">
-                            {lesson.durationMin ?? step.minutes ?? 10} min
+                            {lesson.minutes ?? step.minutes ?? 10} min
                           </Badge>
-                          {state.doneMap[step.id] ? (
-                            <Badge className="rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
-                              Terminée
-                            </Badge>
-                          ) : null}
                         </div>
 
                         <div className="flex flex-col gap-4 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
@@ -595,9 +726,9 @@ export default function StudyChapterPage() {
                         </div>
 
                         <div className="pt-8">
-                          {Array.isArray(lesson.content) &&
-                          lesson.content.length > 0 ? (
-                            <LessonRenderer blocks={lesson.content} />
+                          {Array.isArray(lesson.contentBlocks) &&
+                          lesson.contentBlocks.length > 0 ? (
+                            <LessonRenderer blocks={lesson.contentBlocks} />
                           ) : (
                             <p className="text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
                               Contenu de la leçon en cours de préparation.
@@ -666,27 +797,19 @@ export default function StudyChapterPage() {
                   Vérifie ta maîtrise
                 </h3>
 
-                <p className="mt-4 text-[15px] leading-8 text-muted-foreground sm:text-[16px]">
-                  Quand tu as terminé la lecture et les exercices, passe au quiz
-                  final pour mesurer ton niveau réel sur l’ensemble du chapitre.
-                </p>
-
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   {quiz?.id ? (
                     <Button asChild className="gap-2 rounded-full">
-                      <Link prefetch href={`/quiz/${String(quiz.id)}?fresh=1`}>
+                      <Link href={`/quiz/${String(quiz.id)}?fresh=1`}>
                         <Trophy className="h-4 w-4" />
                         Lancer le quiz final
                       </Link>
                     </Button>
-                  ) : null}
-
-                  {lastQuizPercent !== null ? (
-                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                      <ArrowRight className="h-4 w-4" />
-                      Dernier score : {lastQuizPercent}%
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      Aucun quiz final publié pour ce chapitre.
                     </span>
-                  ) : null}
+                  )}
                 </div>
 
                 {quizStep?.body ? (

@@ -14,7 +14,35 @@ import { Latex } from "@/components/math/latex";
 
 type InlineSegment =
   | { type: "text"; value: string }
-  | { type: "math"; value: string };
+  | { type: "math"; value: string }
+  | { type: "inlineMath"; value: string }
+  | { type: "strong"; value: string };
+
+type TextBlock = {
+  type: "text";
+  value: string;
+};
+
+type FormulaBlock = {
+  type: "formula";
+  value: string;
+};
+
+type ExampleBlock = {
+  type: "example";
+  title?: string;
+  value: string;
+};
+
+type TipBlock = {
+  type: "tip";
+  value: string;
+};
+
+type DefinitionBlock = {
+  type: "definition";
+  value: string;
+};
 
 type RichTextBlock = {
   type: "richText";
@@ -46,10 +74,15 @@ type LegacyBlock = {
 };
 
 type Block =
-  | LegacyBlock
+  | TextBlock
+  | FormulaBlock
+  | ExampleBlock
+  | TipBlock
+  | DefinitionBlock
   | RichTextBlock
   | SolutionStepsBlock
-  | ExerciseBlock;
+  | ExerciseBlock
+  | LegacyBlock;
 
 function parseInlineMath(input: string): InlineSegment[] {
   if (!input) return [{ type: "text", value: "" }];
@@ -94,12 +127,16 @@ function InlineRichText({ text }: { text: string }) {
   return (
     <>
       {segments.map((segment, index) => {
-        if (segment.type === "math") {
+        if (segment.type === "math" || segment.type === "inlineMath") {
           return (
             <span key={index} className="mx-0.5 inline-block align-middle">
               <Latex math={segment.value} />
             </span>
           );
+        }
+
+        if (segment.type === "strong") {
+          return <strong key={index}>{segment.value}</strong>;
         }
 
         return <Fragment key={index}>{segment.value}</Fragment>;
@@ -112,12 +149,16 @@ function SegmentedRichText({ segments }: { segments: InlineSegment[] }) {
   return (
     <>
       {segments.map((segment, index) => {
-        if (segment.type === "math") {
+        if (segment.type === "math" || segment.type === "inlineMath") {
           return (
             <span key={index} className="mx-0.5 inline-block align-middle">
               <Latex math={segment.value} />
             </span>
           );
+        }
+
+        if (segment.type === "strong") {
+          return <strong key={index}>{segment.value}</strong>;
         }
 
         return <Fragment key={index}>{segment.value}</Fragment>;
@@ -353,7 +394,7 @@ export default function LessonRenderer({ blocks }: { blocks: Block[] }) {
           }
 
           if (block.type === "text") {
-            const text = block.content ?? block.value ?? "";
+            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
             return (
               <p key={i} className="break-words text-foreground/90">
                 <InlineRichText text={text} />
@@ -362,7 +403,7 @@ export default function LessonRenderer({ blocks }: { blocks: Block[] }) {
           }
 
           if (block.type === "formula") {
-            const math = block.math ?? block.value ?? "";
+            const math = ("value" in block && block.value) || ("math" in block && block.math) || "";
             return (
               <div key={i} className="my-5 overflow-x-auto py-2">
                 <div className="flex min-w-max justify-center">
@@ -373,8 +414,8 @@ export default function LessonRenderer({ blocks }: { blocks: Block[] }) {
           }
 
           if (block.type === "example") {
-            const title = block.title || "Exemple";
-            const text = block.content ?? block.value ?? "";
+            const title = ("title" in block && block.title) || "Exemple";
+            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
 
             return (
               <div
@@ -390,7 +431,7 @@ export default function LessonRenderer({ blocks }: { blocks: Block[] }) {
           }
 
           if (block.type === "tip") {
-            const text = block.content ?? block.value ?? "";
+            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
             return (
               <div
                 key={i}
@@ -407,7 +448,7 @@ export default function LessonRenderer({ blocks }: { blocks: Block[] }) {
           }
 
           if (block.type === "definition") {
-            const text = block.content ?? block.value ?? "";
+            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
             return (
               <div key={i} className="break-words font-semibold text-foreground">
                 <InlineRichText text={text} />

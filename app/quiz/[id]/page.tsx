@@ -25,7 +25,7 @@ import {
 
 import { markStepDone } from "@/lib/study/progress";
 import type { Quiz, QuizQuestion } from "@/lib/types/quiz";
-import { getQuizById } from "@/lib/quiz/data";
+import { getFullQuizById} from "@/lib/supabase/queries"
 import { computeQuizResult } from "@/lib/quiz/score";
 
 import {
@@ -218,7 +218,7 @@ export default function QuizPage() {
 
     (async () => {
       setIsLoading(true);
-      const q = await getQuizById(quizId);
+      const q = await getFullQuizById(quizId);
       if (!alive) return;
       setQuiz(q);
       setIsLoading(false);

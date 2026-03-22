@@ -1,89 +1,79 @@
-'use client';
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { DashboardNav } from "@/components/dashboard-nav";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
-import { motion, useReducedMotion } from 'framer-motion';
-import { DashboardNav } from '@/components/dashboard-nav';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   BookOpen,
   CheckCircle2,
   Circle,
   Clock,
-  PlayCircle,
   FileText,
   PenTool,
   Brain,
   ArrowLeft,
   AlertTriangle,
   Sparkles,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { getSubjectBySlug, getChaptersBySubject } from '@/lib/mock-api/data';
-import { readProgressStore } from '@/lib/progress/index';
-import { findQuizByChapterId } from '@/lib/study/quiz-link';
+import {
+  getSubjectBySlug,
+  getChaptersBySubject,
+  getQuizByChapterId,
+} from "@/lib/supabase/queries";
+
+type PageProps = {
+  params: {
+    slug: string;
+  };
+};
 
 type SubjectVM = {
   id: string;
-  name: string;
+  title: string;
   description?: string;
-  progress: number;
 };
 
 type ChapterVM = {
   id: string;
   order: number;
   title: string;
-  estimatedTime: number;
+  description?: string;
+  estimatedMinutes: number;
   hasExercises: boolean;
   hasQuiz: boolean;
 };
 
 const PASS_PERCENT = 70;
+type Strength = "weak" | "ok" | "strong" | "unknown";
 
-type Strength = 'weak' | 'ok' | 'strong' | 'unknown';
-
-function strengthFromPercent(pct: number | null): Strength {
-  if (pct === null || Number.isNaN(pct)) return 'unknown';
-  if (pct < 50) return 'weak';
-  if (pct < PASS_PERCENT) return 'ok';
-  return 'strong';
+function strengthFromPercent(percent: number | null): Strength {
+  if (percent === null || Number.isNaN(percent)) return "unknown";
+  if (percent < 50) return "weak";
+  if (percent < PASS_PERCENT) return "ok";
+  return "strong";
 }
 
-function strengthLabel(s: Strength) {
-  switch (s) {
-    case 'weak':
-      return 'Faible';
-    case 'ok':
-      return 'OK';
-    case 'strong':
-      return 'Fort';
-    default:
-      return '—';
-  }
-}
-
-function strengthBadge(s: Strength) {
-  switch (s) {
-    case 'weak':
+function strengthBadge(strength: Strength) {
+  switch (strength) {
+    case "weak":
       return (
         <Badge className="bg-red-600">
           <AlertTriangle className="mr-1 h-3.5 w-3.5" />
           Faible
         </Badge>
       );
-    case 'ok':
+    case "ok":
       return (
-        <Badge className="bg-yellow-600 text-black">
+        <Badge className="bg-yellow-500 text-black">
           <Sparkles className="mr-1 h-3.5 w-3.5" />
           OK
         </Badge>
       );
-    case 'strong':
+    case "strong":
       return (
         <Badge className="bg-green-600">
           <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
@@ -95,198 +85,102 @@ function strengthBadge(s: Strength) {
   }
 }
 
-function statusIconFromStrength(s: Strength) {
-  switch (s) {
-    case 'strong':
+function statusIconFromStrength(strength: Strength) {
+  switch (strength) {
+    case "strong":
       return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-    case 'ok':
-      return <PlayCircle className="h-5 w-5 text-blue-600" />;
-    case 'weak':
+    case "ok":
+      return <Brain className="h-5 w-5 text-blue-600" />;
+    case "weak":
       return <AlertTriangle className="h-5 w-5 text-red-600" />;
     default:
       return <Circle className="h-5 w-5 text-muted-foreground" />;
   }
 }
 
-export default function SubjectDetailPage() {
-  const router = useRouter();
-  const params = useParams();
-  const prefersReducedMotion = useReducedMotion();
-  const slug = params?.slug as string;
+export default async function SubjectDetailPage({ params }: PageProps) {
+  const subjectRaw = await getSubjectBySlug(params.slug);
 
-  const [subjectRaw, setSubjectRaw] = useState<any>(null);
-  const [chaptersRaw, setChaptersRaw] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [weakFirst, setWeakFirst] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadData = async () => {
-      try {
-        const subjectData = await getSubjectBySlug(slug);
-
-        if (!mounted) return;
-
-        if (!subjectData) {
-          router.push('/subjects');
-          return;
-        }
-
-        setSubjectRaw(subjectData);
-
-        const chaptersData = await getChaptersBySubject((subjectData as any).id);
-
-        if (!mounted) return;
-        setChaptersRaw(chaptersData ?? []);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    };
-
-    loadData();
-
-    return () => {
-      mounted = false;
-    };
-  }, [slug, router]);
-
-  const subject: SubjectVM | null = useMemo(() => {
-    if (!subjectRaw) return null;
-
-    return {
-      id: String(subjectRaw.id),
-      name: String(subjectRaw.name ?? subjectRaw.title ?? subjectRaw.label ?? 'Matière'),
-      description: subjectRaw.description ?? subjectRaw.desc ?? '',
-      progress: Number(subjectRaw.progress ?? 0),
-    };
-  }, [subjectRaw]);
-
-  const chapters: ChapterVM[] = useMemo(() => {
-    return (chaptersRaw ?? []).map((c: any, idx: number) => ({
-      id: String(c.id),
-      order: Number(c.order ?? c.position ?? idx + 1),
-      title: String(c.title ?? c.name ?? `Chapitre ${idx + 1}`),
-      estimatedTime: Number(c.estimatedTime ?? c.minutes ?? c.duration ?? 10),
-      hasExercises: Boolean(c.hasExercises ?? c.hasExercise ?? c.exercises?.length),
-      hasQuiz: Boolean(c.hasQuiz ?? c.quizId ?? c.quiz?.id ?? findQuizByChapterId(String(c.id))?.id),
-    }));
-  }, [chaptersRaw]);
-
-  const quizResultsByQuizId = useMemo(() => {
-    const store = readProgressStore();
-    return store.quizResults ?? {};
-  }, []);
-
-  const enriched = useMemo(() => {
-    return chapters.map((chapter) => {
-      const quiz = findQuizByChapterId(chapter.id);
-      const quizId = quiz?.id ? String(quiz.id) : null;
-
-      const rawResult = quizId ? (quizResultsByQuizId as any)[quizId] : null;
-      const percent =
-        rawResult && typeof rawResult.percentage === 'number'
-          ? Math.round(rawResult.percentage)
-          : null;
-
-      const passed = percent !== null ? percent >= PASS_PERCENT : false;
-      const strength = strengthFromPercent(percent);
-
-      return {
-        chapter,
-        quizId,
-        percent,
-        passed,
-        strength,
-      };
-    });
-  }, [chapters, quizResultsByQuizId]);
-
-  const stats = useMemo(() => {
-    const total = enriched.length;
-    const evaluated = enriched.filter((x) => x.percent !== null).length;
-    const weak = enriched.filter((x) => x.strength === 'weak').length;
-    const ok = enriched.filter((x) => x.strength === 'ok').length;
-    const strong = enriched.filter((x) => x.strength === 'strong').length;
-
-    const completed = enriched.filter((x) => {
-      if (!x.chapter.hasQuiz) return false;
-      return x.passed;
-    }).length;
-
-    const avg =
-      total > 0
-        ? Math.round(enriched.reduce((acc, x) => acc + (x.percent ?? 0), 0) / total)
-        : 0;
-
-    return { total, evaluated, weak, ok, strong, completed, avg };
-  }, [enriched]);
-
-  const sorted = useMemo(() => {
-    const arr = [...enriched];
-
-    if (!weakFirst) {
-      arr.sort((a, b) => (a.chapter.order ?? 0) - (b.chapter.order ?? 0));
-      return arr;
-    }
-
-    const rank = (s: Strength) => {
-      if (s === 'weak') return 0;
-      if (s === 'ok') return 1;
-      if (s === 'unknown') return 2;
-      return 3;
-    };
-
-    arr.sort((a, b) => {
-      const ra = rank(a.strength);
-      const rb = rank(b.strength);
-      if (ra !== rb) return ra - rb;
-
-      const pa = a.percent ?? 999;
-      const pb = b.percent ?? 999;
-      if (pa !== pb) return pa - pb;
-
-      return (a.chapter.order ?? 0) - (b.chapter.order ?? 0);
-    });
-
-    return arr;
-  }, [enriched, weakFirst]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <DashboardNav />
-        <div className="flex min-h-[70vh] items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-        </div>
-      </div>
-    );
+  if (!subjectRaw) {
+    notFound();
   }
 
-  if (!subject) return null;
+  const chaptersRaw = await getChaptersBySubject(subjectRaw.id);
+
+  const quizEntries = await Promise.all(
+    (chaptersRaw ?? []).map(async (chapter: any) => {
+      const quiz = await getQuizByChapterId(String(chapter.id));
+      return [String(chapter.id), quiz] as const;
+    })
+  );
+
+  const quizMap = new Map(quizEntries);
+
+  const subject: SubjectVM = {
+    id: String(subjectRaw.id),
+    title: String(subjectRaw.title ?? subjectRaw.name ?? "Matière"),
+    description: String(subjectRaw.description ?? ""),
+  };
+
+  const chapters: ChapterVM[] = (chaptersRaw ?? []).map(
+    (chapter: any, index: number) => ({
+      id: String(chapter.id),
+      order: Number(chapter.order_index ?? chapter.order ?? index + 1),
+      title: String(chapter.title ?? `Chapitre ${index + 1}`),
+      description: String(chapter.summary ?? chapter.description ?? ""),
+      estimatedMinutes: Number(
+        chapter.estimated_minutes ?? chapter.estimatedMinutes ?? 10
+      ),
+      hasExercises: Boolean(
+        chapter.has_exercises ?? chapter.hasExercises ?? false
+      ),
+      hasQuiz: Boolean(quizMap.get(String(chapter.id))),
+    })
+  );
+
+  const enriched = chapters.map((chapter) => {
+    const quiz = quizMap.get(chapter.id);
+    const percent = null;
+    const strength = strengthFromPercent(percent);
+
+    return {
+      chapter,
+      percent,
+      strength,
+    };
+  });
+
+  const stats = {
+    total: enriched.length,
+    evaluated: 0,
+    weak: enriched.filter((item) => item.strength === "weak").length,
+    ok: enriched.filter((item) => item.strength === "ok").length,
+    strong: enriched.filter((item) => item.strength === "strong").length,
+    average: 0,
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
       <main className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Button variant="ghost" onClick={() => router.push('/subjects')} className="mb-6">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Retour
+        <div>
+          <Button asChild variant="ghost" className="mb-6">
+            <Link href="/subjects">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour
+            </Link>
           </Button>
 
           <div className="mb-8">
             <h1 className="mb-4 font-serif text-3xl font-bold sm:text-4xl">
-              {subject.name}
+              {subject.title}
             </h1>
 
             {subject.description ? (
-              <p className="mb-6 text-lg text-muted-foreground">{subject.description}</p>
+              <p className="mb-6 text-lg text-muted-foreground">
+                {subject.description}
+              </p>
             ) : null}
 
             <div className="mb-4 grid gap-4 sm:grid-cols-3">
@@ -306,7 +200,7 @@ export default function SubjectDetailPage() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Évalués (quiz)</p>
+                      <p className="text-sm text-muted-foreground">Évalués</p>
                       <p className="text-2xl font-bold">{stats.evaluated}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Faible: {stats.weak} • OK: {stats.ok} • Fort: {stats.strong}
@@ -321,119 +215,96 @@ export default function SubjectDetailPage() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Indice global</p>
-                      <p className="text-2xl font-bold">{stats.avg}%</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Basé sur les derniers scores quiz
-                      </p>
+                      <p className="text-sm text-muted-foreground">Moyenne quiz</p>
+                      <p className="text-2xl font-bold">{stats.average}%</p>
                     </div>
                     <div className="w-20">
-                      <Progress value={stats.avg} className="h-3" />
+                      <Progress value={stats.average} className="h-3" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm text-muted-foreground">
-                Objectif : consolider tes points faibles. Tout est accessible.
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={weakFirst ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setWeakFirst(true)}
-                >
-                  Faibles d&apos;abord
-                </Button>
-                <Button
-                  variant={!weakFirst ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setWeakFirst(false)}
-                >
-                  Ordre normal
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h2 className="font-serif text-2xl font-bold">Chapitres</h2>
           </div>
 
           <div className="space-y-4">
-            {sorted.map(({ chapter, percent, strength }) => (
-              <motion.div
-                key={chapter.id}
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18 }}
-              >
-                <Card className="transition-shadow hover:shadow-md">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex flex-1 items-start space-x-4">
-                        {statusIconFromStrength(strength)}
+            {enriched.map(({ chapter, percent, strength }) => (
+              <Card key={chapter.id} className="transition-shadow hover:shadow-md">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-1 items-start space-x-4">
+                      {statusIconFromStrength(strength)}
 
-                        <div className="flex-1">
-                          <CardTitle className="mb-2 text-lg">
-                            Chapitre {chapter.order}: {chapter.title}
-                          </CardTitle>
+                      <div className="flex-1">
+                        <CardTitle className="mb-2 text-lg">
+                          Chapitre {chapter.order}: {chapter.title}
+                        </CardTitle>
 
-                          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                            <div className="flex items-center">
-                              <Clock className="mr-1 h-4 w-4" />
-                              {chapter.estimatedTime} min
-                            </div>
+                        {chapter.description ? (
+                          <p className="mb-3 text-sm text-muted-foreground">
+                            {chapter.description}
+                          </p>
+                        ) : null}
 
-                            {strengthBadge(strength)}
-
-                            {percent !== null ? (
-                              <Badge variant="outline">
-                                Score: {percent}% ({strengthLabel(strength)})
-                              </Badge>
-                            ) : null}
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                          <div className="flex items-center">
+                            <Clock className="mr-1 h-4 w-4" />
+                            {chapter.estimatedMinutes} min
                           </div>
+
+                          {strengthBadge(strength)}
+
+                          {percent !== null ? (
+                            <Badge variant="outline">Score: {percent}%</Badge>
+                          ) : null}
                         </div>
                       </div>
                     </div>
-                  </CardHeader>
+                  </div>
+                </CardHeader>
 
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      <Link prefetch href={`/chapters/${chapter.id}`}>
-                        <Button variant="default" size="sm">
-                          <FileText className="mr-2 h-4 w-4" />
-                          Lire le cours
-                        </Button>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="default" size="sm">
+                      <Link href={`/chapters/${chapter.id}`}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Lire le cours
                       </Link>
+                    </Button>
 
-                      {chapter.hasExercises ? (
-                        <Link prefetch href={`/chapters/${chapter.id}?tab=exercises`}>
-                          <Button variant="outline" size="sm">
-                            <PenTool className="mr-2 h-4 w-4" />
-                            Exercices
-                          </Button>
+                    {chapter.hasExercises ? (
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/chapters/${chapter.id}?tab=exercises`}>
+                          <PenTool className="mr-2 h-4 w-4" />
+                          Exercices
                         </Link>
-                      ) : null}
+                      </Button>
+                    ) : null}
 
-                      {chapter.hasQuiz ? (
-                        <Link prefetch href={`/chapters/${chapter.id}?tab=quiz`}>
-                          <Button variant="outline" size="sm">
-                            <Brain className="mr-2 h-4 w-4" />
-                            Quiz
-                          </Button>
+                    {chapter.hasQuiz ? (
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/chapters/${chapter.id}?tab=quiz`}>
+                          <Brain className="mr-2 h-4 w-4" />
+                          Quiz
                         </Link>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                      </Button>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
-        </motion.div>
+
+          {enriched.length === 0 ? (
+            <div className="py-12 text-center">
+              <BookOpen className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="mb-2 text-lg font-semibold">Aucun chapitre trouvé</h3>
+              <p className="text-muted-foreground">
+                Cette matière n’a pas encore de chapitres publiés.
+              </p>
+            </div>
+          ) : null}
+        </div>
       </main>
     </div>
   );

@@ -18,7 +18,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { mockGetCurrentUser } from '@/lib/mock-api/auth';
-import { getSubjects } from '@/lib/mock-api/data';
+import { getSubjects } from '@/lib/supabase/queries';
 import type { User } from '@/lib/types';
 import * as LucideIcons from 'lucide-react';
 
