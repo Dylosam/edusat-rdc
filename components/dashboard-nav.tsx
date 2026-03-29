@@ -278,7 +278,7 @@ export function DashboardNav() {
                 </Button>
               </div>
 
-              <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-y-auto px-3 py-4">
+              <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-y-auto px-3 py-4 pb-24">
                 <nav className="flex flex-col gap-1">
                   {navItems.map((item) => (
                     <Link

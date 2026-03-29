@@ -1,11 +1,11 @@
-import { supabaseBrowser } from "./client";
+import { supabaseServer } from "./server";
 
 // =========================
 // SUBJECTS
 // =========================
 
 export async function getSubjects() {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("subjects")
     .select("*")
     .eq("is_published", true)
@@ -16,7 +16,7 @@ export async function getSubjects() {
 }
 
 export async function getSubjectBySlug(slug: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("subjects")
     .select("*")
     .eq("slug", slug)
@@ -28,7 +28,7 @@ export async function getSubjectBySlug(slug: string) {
 }
 
 export async function getSubjectById(id: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("subjects")
     .select("*")
     .eq("id", id)
@@ -44,7 +44,7 @@ export async function getSubjectById(id: string) {
 // =========================
 
 export async function getChaptersBySubject(subjectId: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("chapters")
     .select("*")
     .eq("subject_id", subjectId)
@@ -56,7 +56,7 @@ export async function getChaptersBySubject(subjectId: string) {
 }
 
 export async function getChapterById(id: string) {
-  const { data: chapter, error: chapterError } = await supabaseBrowser
+  const { data: chapter, error: chapterError } = await supabaseServer
     .from("chapters")
     .select("*")
     .eq("id", id)
@@ -69,7 +69,7 @@ export async function getChapterById(id: string) {
   let subject: any = null;
 
   if (chapter.subject_id) {
-    const { data: subjectData, error: subjectError } = await supabaseBrowser
+    const { data: subjectData, error: subjectError } = await supabaseServer
       .from("subjects")
       .select("id, slug, title")
       .eq("id", chapter.subject_id)
@@ -91,7 +91,7 @@ export async function getChapterById(id: string) {
 // =========================
 
 export async function getLessonsByChapter(chapterId: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("lessons")
     .select(`
       *,
@@ -123,7 +123,7 @@ export async function getLessonsByChapter(chapterId: string) {
 }
 
 export async function getLessonById(id: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("lessons")
     .select("*")
     .eq("id", id)
@@ -135,7 +135,7 @@ export async function getLessonById(id: string) {
 }
 
 export async function getLessonBlocks(lessonId: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("lesson_content_blocks")
     .select("*")
     .eq("lesson_id", lessonId)
@@ -149,8 +149,20 @@ export async function getLessonBlocks(lessonId: string) {
 // QUIZZES
 // =========================
 
+export async function getQuizzesByChapterId(chapterId: string) {
+  const { data, error } = await supabaseServer
+    .from("quizzes")
+    .select("*")
+    .eq("chapter_id", chapterId)
+    .eq("is_published", true)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export async function getQuizById(id: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("quizzes")
     .select("*")
     .eq("id", id)
@@ -161,21 +173,8 @@ export async function getQuizById(id: string) {
   return data;
 }
 
-export async function getQuizByChapterId(chapterId: string) {
-  const { data, error } = await supabaseBrowser
-    .from("quizzes")
-    .select("*")
-    .eq("chapter_id", chapterId)
-    .eq("is_published", true)
-    .eq("is_final", true)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  return data;
-}
-
 export async function getQuizQuestions(quizId: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("quiz_questions")
     .select("*")
     .eq("quiz_id", quizId)
@@ -186,7 +185,7 @@ export async function getQuizQuestions(quizId: string) {
 }
 
 export async function getQuizChoices(questionId: string) {
-  const { data, error } = await supabaseBrowser
+  const { data, error } = await supabaseServer
     .from("quiz_choices")
     .select("*")
     .eq("question_id", questionId)
@@ -197,7 +196,7 @@ export async function getQuizChoices(questionId: string) {
 }
 
 export async function getFullQuizById(quizId: string) {
-  const { data: quiz, error: quizError } = await supabaseBrowser
+  const { data: quiz, error: quizError } = await supabaseServer
     .from("quizzes")
     .select("*")
     .eq("id", quizId)
@@ -207,7 +206,7 @@ export async function getFullQuizById(quizId: string) {
   if (quizError) throw new Error(quizError.message);
   if (!quiz) return null;
 
-  const { data: questions, error: questionsError } = await supabaseBrowser
+  const { data: questions, error: questionsError } = await supabaseServer
     .from("quiz_questions")
     .select("*")
     .eq("quiz_id", quizId)
@@ -219,7 +218,7 @@ export async function getFullQuizById(quizId: string) {
 
   let choices: any[] = [];
   if (questionIds.length > 0) {
-    const { data: choicesData, error: choicesError } = await supabaseBrowser
+    const { data: choicesData, error: choicesError } = await supabaseServer
       .from("quiz_choices")
       .select("*")
       .in("question_id", questionIds)

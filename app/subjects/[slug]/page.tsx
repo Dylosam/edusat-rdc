@@ -22,9 +22,11 @@ import {
 import {
   getSubjectBySlug,
   getChaptersBySubject,
-  getQuizByChapterId,
+  getQuizzesByChapterId,
 } from "@/lib/supabase/queries";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 type PageProps = {
   params: {
     slug: string;
@@ -109,12 +111,15 @@ export default async function SubjectDetailPage({ params }: PageProps) {
 
   const quizEntries = await Promise.all(
     (chaptersRaw ?? []).map(async (chapter: any) => {
-      const quiz = await getQuizByChapterId(String(chapter.id));
-      return [String(chapter.id), quiz] as const;
+      const quizzes = await getQuizzesByChapterId(String(chapter.id));
+      return [
+        String(chapter.id),
+        Array.isArray(quizzes) ? quizzes : [],
+      ] as const;
     })
   );
 
-  const quizMap = new Map(quizEntries);
+  const quizMap = new Map<string, any[]>(quizEntries);
 
   const subject: SubjectVM = {
     id: String(subjectRaw.id),
@@ -134,17 +139,18 @@ export default async function SubjectDetailPage({ params }: PageProps) {
       hasExercises: Boolean(
         chapter.has_exercises ?? chapter.hasExercises ?? false
       ),
-      hasQuiz: Boolean(quizMap.get(String(chapter.id))),
+      hasQuiz: (quizMap.get(String(chapter.id))?.length ?? 0) > 0,
     })
   );
 
   const enriched = chapters.map((chapter) => {
-    const quiz = quizMap.get(chapter.id);
+    const quizzes = quizMap.get(chapter.id) ?? [];
     const percent = null;
     const strength = strengthFromPercent(percent);
 
     return {
       chapter,
+      quizzes,
       percent,
       strength,
     };
@@ -228,7 +234,7 @@ export default async function SubjectDetailPage({ params }: PageProps) {
           </div>
 
           <div className="space-y-4">
-            {enriched.map(({ chapter, percent, strength }) => (
+            {enriched.map(({ chapter, quizzes, percent, strength }) => (
               <Card key={chapter.id} className="transition-shadow hover:shadow-md">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
@@ -257,6 +263,13 @@ export default async function SubjectDetailPage({ params }: PageProps) {
                           {percent !== null ? (
                             <Badge variant="outline">Score: {percent}%</Badge>
                           ) : null}
+
+                          {quizzes.length > 0 ? (
+                            <Badge variant="outline">
+                              {quizzes.length} quiz
+                              {quizzes.length > 1 ? "s" : ""}
+                            </Badge>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -281,14 +294,23 @@ export default async function SubjectDetailPage({ params }: PageProps) {
                       </Button>
                     ) : null}
 
-                    {chapter.hasQuiz ? (
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/chapters/${chapter.id}?tab=quiz`}>
-                          <Brain className="mr-2 h-4 w-4" />
-                          Quiz
-                        </Link>
-                      </Button>
-                    ) : null}
+                    {chapter.hasQuiz && quizzes.length > 0
+                      ? quizzes.map((quiz: any) => (
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            key={String(quiz.id)}
+                          >
+                            <Link href={`/quiz/${String(quiz.id)}?fresh=1`}>
+                              <Brain className="mr-2 h-4 w-4" />
+                              {quizzes.length === 1
+                                ? "Quiz"
+                                : `Quiz${quiz.title ? ` : ${quiz.title}` : ""}`}
+                            </Link>
+                          </Button>
+                        ))
+                      : null}
                   </div>
                 </CardContent>
               </Card>

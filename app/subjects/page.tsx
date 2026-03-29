@@ -19,6 +19,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 type SubjectVM = {
   id: string;
   slug: string;

@@ -25,7 +25,7 @@ import {
 
 import { markStepDone } from "@/lib/study/progress";
 import type { Quiz, QuizQuestion } from "@/lib/types/quiz";
-import { getFullQuizById} from "@/lib/supabase/queries"
+import { getFullQuizById } from "@/lib/supabase/queries";
 import { computeQuizResult } from "@/lib/quiz/score";
 
 import {
@@ -177,7 +177,7 @@ export default function QuizPage() {
   const prefersReducedMotion = useReducedMotion();
 
   const quizId = params?.id as string;
-  const fresh = searchParams.get("fresh");
+  const isFresh = searchParams.get("fresh") === "1";
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [sessionQuestions, setSessionQuestions] = useState<QuizQuestion[]>([]);
@@ -208,10 +208,10 @@ export default function QuizPage() {
   };
 
   useEffect(() => {
-    if (!fresh) return;
+    if (!quizId) return;
+    if (!isFresh) return;
     hardReset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quizId, fresh]);
+  }, [quizId, isFresh]);
 
   useEffect(() => {
     let alive = true;
@@ -230,7 +230,7 @@ export default function QuizPage() {
   }, [quizId]);
 
   useEffect(() => {
-    if (fresh) {
+    if (isFresh) {
       setAnswers({});
       setStoredResult(null);
       setIsSubmitted(false);
@@ -248,10 +248,31 @@ export default function QuizPage() {
       setStoredResult(null);
       setIsSubmitted(false);
     }
-  }, [quizId, fresh]);
+  }, [quizId, isFresh]);
 
   useEffect(() => {
     if (!quiz) return;
+
+    if (isFresh) {
+      const built = buildSessionFromQuiz(quiz);
+      setSessionQuestions(built.questions);
+      setCurrentQuestionIndex(0);
+
+      const startedAt = Date.now();
+      startedAtRef.current = startedAt;
+
+      saveQuizSession(quizId, {
+        quizId,
+        startedAt,
+        remainingSec: quiz.timeLimitSec ? quiz.timeLimitSec : 0,
+        running: Boolean(quiz.timeLimitSec),
+        currentIndex: 0,
+        questionOrder: built.questionOrder,
+        optionsOrder: built.optionsOrder,
+      });
+
+      return;
+    }
 
     const savedResult = loadQuizResult(quizId);
     if (savedResult) {
@@ -287,17 +308,19 @@ export default function QuizPage() {
       questionOrder: built.questionOrder,
       optionsOrder: built.optionsOrder,
     });
-  }, [quiz, quizId, fresh]);
+  }, [quiz, quizId, isFresh]);
 
   const initialRemaining = useMemo(() => {
     if (!quiz) return 1;
     if (!quiz.timeLimitSec) return 1;
 
+    if (isFresh) return quiz.timeLimitSec;
+
     const s = loadQuizSession(quizId);
     if (s && typeof s.remainingSec === "number") return Math.max(0, s.remainingSec);
 
     return quiz.timeLimitSec;
-  }, [quiz, quizId, fresh]);
+  }, [quiz, quizId, isFresh]);
 
   const handleSubmit = (auto = false) => {
     if (!quiz) return;
@@ -375,10 +398,10 @@ export default function QuizPage() {
 
     const s = loadQuizSession(quizId);
 
-    if (s?.running || fresh) {
+    if (s?.running || isFresh) {
       timer.start();
     }
-  }, [quiz?.timeLimitSec, quizId, isSubmitted, fresh, timer]);
+  }, [quiz?.timeLimitSec, quizId, isSubmitted, isFresh, timer]);
 
   useEffect(() => {
     if (isSubmitted) return;
@@ -442,6 +465,7 @@ export default function QuizPage() {
 
     const built = buildSessionFromQuiz(quiz);
     setSessionQuestions(built.questions);
+    setCurrentQuestionIndex(0);
 
     const startedAt = Date.now();
     startedAtRef.current = startedAt;
@@ -486,7 +510,9 @@ export default function QuizPage() {
                 Le quiz n’existe pas ou ne contient aucune question.
               </p>
               <Button asChild variant="outline">
-                <Link prefetch href="/subjects">Retour aux matières</Link>
+                <Link prefetch href="/subjects">
+                  Retour aux matières
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -507,7 +533,6 @@ export default function QuizPage() {
 
     const scorePercentage = res.percentage;
     const passed = res.passed;
-    const isPerfect = Math.round(res.percentage) === 100;
 
     const goBackToChapter = () => {
       if (!chapterIdResolved) {
@@ -605,12 +630,10 @@ export default function QuizPage() {
                 </div>
 
                 <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                  {!isPerfect ? (
-                    <Button variant="outline" onClick={handleRetake}>
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      Refaire le quiz
-                    </Button>
-                  ) : null}
+                  <Button variant="outline" onClick={handleRetake}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Refaire le quiz
+                  </Button>
 
                   <Button
                     className="bg-white text-black hover:bg-white/90"

@@ -11,7 +11,6 @@ import {
   Clock3,
   RotateCcw,
   GraduationCap,
-  BarChart3,
   Search,
   ClipboardCheck,
   ListChecks,
@@ -20,7 +19,6 @@ import {
   PanelLeftOpen,
   BookOpen,
   Target,
-  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -42,7 +40,7 @@ import {
 import {
   getChapterById,
   getLessonsByChapter,
-  getQuizByChapterId,
+  getQuizzesByChapterId,
 } from "@/lib/supabase/queries";
 
 const EMPTY_STATE = {
@@ -138,11 +136,7 @@ export default function StudyChapterPage() {
     return "";
   }, [params]);
 
-  const [quizRaw, setQuizRaw] = useState<any | null>(null);
-  const steps = useMemo(
-    () => (chapterId ? buildStudySteps(chapterId) : []),
-    [chapterId]
-  );
+  const [quizzesRaw, setQuizzesRaw] = useState<any[]>([]);
 
   const [mounted, setMounted] = useState(false);
   const [state, setState] = useState(EMPTY_STATE);
@@ -154,6 +148,12 @@ export default function StudyChapterPage() {
   const [lessonsRaw, setLessonsRaw] = useState<any[]>([]);
   const [contentLoading, setContentLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const steps = useMemo(
+    () =>
+      chapterId ? buildStudySteps(chapterId, lessonsRaw, quizzesRaw) : [],
+    [chapterId, lessonsRaw, quizzesRaw]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -180,10 +180,10 @@ export default function StudyChapterPage() {
         setContentLoading(true);
         setErrorMessage("");
 
-        const [chapterData, lessonsData, quizData] = await Promise.all([
+        const [chapterData, lessonsData, quizzesData] = await Promise.all([
           getChapterById(chapterId),
           getLessonsByChapter(chapterId),
-          getQuizByChapterId(chapterId),
+          getQuizzesByChapterId(chapterId),
         ]);
 
         if (!active) return;
@@ -192,13 +192,13 @@ export default function StudyChapterPage() {
           setErrorMessage("Chapitre introuvable dans la base.");
           setChapterRaw(null);
           setLessonsRaw([]);
-          setQuizRaw(null);
+          setQuizzesRaw([]);
           return;
         }
 
         setChapterRaw(chapterData);
         setLessonsRaw(Array.isArray(lessonsData) ? lessonsData : []);
-        setQuizRaw(quizData ?? null);
+        setQuizzesRaw(Array.isArray(quizzesData) ? quizzesData : []);
       } catch (error) {
         console.error("Erreur chargement chapitre:", error);
 
@@ -219,23 +219,25 @@ export default function StudyChapterPage() {
     return () => {
       active = false;
     };
-  }, [chapterId]); // ✅ IMPORTANT : PAS de params ici
+  }, [chapterId]);
 
   const progress = mounted ? state.progressPercent : 0;
   const isCompleted = progress >= 100;
 
-  const quiz = useMemo(() => quizRaw, [quizRaw]);
+  const chapterQuiz = useMemo(() => {
+    return quizzesRaw.length > 0 ? quizzesRaw[0] : null;
+  }, [quizzesRaw]);
 
   const lastQuizPercent = useMemo(() => {
-    if (!mounted || !quiz?.id) return null;
+    if (!mounted || !chapterQuiz?.id) return null;
 
     const store = readProgressStore();
-    const result = (store?.quizResults ?? {})[String(quiz.id)] as any;
+    const result = (store?.quizResults ?? {})[String(chapterQuiz.id)] as any;
 
     return typeof result?.percentage === "number"
       ? Math.round(result.percentage)
       : null;
-  }, [mounted, quiz?.id]);
+  }, [mounted, chapterQuiz?.id]);
 
   const lessonSteps = useMemo(
     () => steps.filter((step) => String(step.kind) === "lesson"),
@@ -523,9 +525,9 @@ export default function StudyChapterPage() {
                 Commencer
               </Button>
 
-              {quiz?.id ? (
+              {chapterQuiz?.id ? (
                 <Button asChild className="gap-2 rounded-full">
-                  <Link href={`/quiz/${String(quiz.id)}?fresh=1`}>
+                  <Link href={`/quiz/${String(chapterQuiz.id)}?fresh=1`}>
                     <Trophy className="h-4 w-4" />
                     Quiz final
                     {lastQuizPercent !== null ? (
@@ -789,7 +791,7 @@ export default function StudyChapterPage() {
                 <div className="mb-4 flex items-center gap-2 text-primary">
                   <ClipboardCheck className="h-4 w-4" />
                   <span className="text-sm font-semibold uppercase tracking-[0.18em]">
-                    Quiz final
+                    Quiz du chapitre
                   </span>
                 </div>
 
@@ -797,18 +799,31 @@ export default function StudyChapterPage() {
                   Vérifie ta maîtrise
                 </h3>
 
-                <div className="mt-6 flex flex-wrap items-center gap-3">
-                  {quiz?.id ? (
-                    <Button asChild className="gap-2 rounded-full">
-                      <Link href={`/quiz/${String(quiz.id)}?fresh=1`}>
-                        <Trophy className="h-4 w-4" />
-                        Lancer le quiz final
-                      </Link>
-                    </Button>
+                <div className="mt-6 space-y-4">
+                  {quizzesRaw.length > 0 ? (
+                    quizzesRaw.map((quiz) => (
+                      <div
+                        key={quiz.id}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 p-4"
+                      >
+                        <div className="min-w-0">
+                          <h3 className="text-lg font-semibold">
+                            {quiz.title}
+                          </h3>
+                          {quiz.description ? (
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {quiz.description}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <Button asChild className="shrink-0 rounded-full">
+                          <Link href={`/quiz/${quiz.id}`}>Lancer</Link>
+                        </Button>
+                      </div>
+                    ))
                   ) : (
-                    <span className="text-sm text-muted-foreground">
-                      Aucun quiz final publié pour ce chapitre.
-                    </span>
+                    <p className="text-sm text-muted-foreground">Aucun quiz</p>
                   )}
                 </div>
 
