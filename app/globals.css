@@ -121,15 +121,3 @@
   border-color: var(--accent-color);
 }
 
-html,
-body {
-  overflow-x: hidden;
-}
-
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-* {
-  -webkit-tap-highlight-color: transparent;
-}

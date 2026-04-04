@@ -7,8 +7,10 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { getPublicPlatformSettings } from '@/lib/platform-settings';
 import MaintenancePage from '@/components/system/MaintenancePage';
-import { DashboardNav } from '@/components/dashboard-nav';
-import MobileBottomNav from '@/components/mobile-bottom-nav';
+import AuthPresenceSync from '@/components/system/AuthPresenceSync';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const inter = Inter({
   subsets: ['latin'],
@@ -59,7 +61,11 @@ export default async function RootLayout({
 }) {
   const settings = await getPublicPlatformSettings();
 
-  if (settings.maintenance_mode) {
+  console.log('[RootLayout] maintenance_mode =', settings.maintenance_mode);
+
+  const isMaintenanceEnabled = settings.maintenance_mode === true;
+
+  if (isMaintenanceEnabled) {
     return (
       <html lang={settings.default_language} suppressHydrationWarning>
         <body
@@ -103,11 +109,8 @@ export default async function RootLayout({
           enableSystem={settings.theme_mode === 'system'}
           disableTransitionOnChange
         >
-          <DashboardNav />
-          <main className="min-h-[calc(100vh-4rem)] pb-20 md:pb-0">
-            {children}
-          </main>
-          <MobileBottomNav />
+          <AuthPresenceSync />
+          <main className="min-h-screen">{children}</main>
           <Toaster />
         </ThemeProvider>
       </body>

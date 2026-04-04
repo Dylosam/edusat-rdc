@@ -1,24 +1,43 @@
-import { User } from '../types';
+import { supabaseBrowser } from '@/lib/supabase/client';
 
-const mockUser: User = {
-  id: '1',
-  name: 'Jean Mukendi',
-  email: 'jean.mukendi@example.com',
-  phone: '+243 812 345 678',
-  level: '3eHumSc',
-  subscription: 'free',
-  joinDate: '2024-01-15',
-  totalTimeStudied: 12540,
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  level?: string;
 };
 
-export const mockLogin = async (phoneOrEmail: string, password: string): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+function mapSupabaseUser(user: any): AuthUser {
+  return {
+    id: user.id,
+    name: user.user_metadata?.full_name || '',
+    email: user.email || '',
+    phone: user.user_metadata?.phone || '',
+    level: user.user_metadata?.level || '',
+  };
+}
 
-  if (password === 'wrong') {
-    throw new Error('Identifiants incorrects');
+export const mockLogin = async (
+  phoneOrEmail: string,
+  password: string
+): Promise<AuthUser> => {
+  const email = phoneOrEmail.trim().toLowerCase();
+
+  const { data, error } = await supabaseBrowser.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    throw error;
   }
 
-  return mockUser;
+  if (!data.user) {
+    throw new Error("Utilisateur introuvable");
+  }
+
+  return mapSupabaseUser(data.user);
 };
 
 export const mockRegister = async (data: {
@@ -27,51 +46,62 @@ export const mockRegister = async (data: {
   email?: string;
   password: string;
   level: string;
-}): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 1200));
+}): Promise<AuthUser> => {
+  const email = (data.email || '').trim().toLowerCase();
 
-  return {
-    ...mockUser,
-    ...data,
-    id: Math.random().toString(36),
-    subscription: 'free',
-    joinDate: new Date().toISOString().split('T')[0],
-    totalTimeStudied: 0,
-  };
+  if (!email) {
+    throw new Error("L'email est requis");
+  }
+
+  const { data: signUpData, error } = await supabaseBrowser.auth.signUp({
+    email,
+    password: data.password,
+    options: {
+      data: {
+        full_name: data.name,
+        phone: data.phone,
+        level: data.level,
+      },
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!signUpData.user) {
+    throw new Error("Impossible de créer le compte");
+  }
+
+  return mapSupabaseUser(signUpData.user);
 };
 
-export const mockVerifyOTP = async (phone: string, otp: string): Promise<boolean> => {
-  await new Promise(resolve => setTimeout(resolve, 800));
+export const mockVerifyOTP = async (_phone: string, otp: string): Promise<boolean> => {
   return otp === '1234';
 };
 
-export const mockGetCurrentUser = async (): Promise<User | null> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+export const mockGetCurrentUser = async (): Promise<AuthUser | null> => {
+  const { data, error } = await supabaseBrowser.auth.getUser();
 
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('currentUser');
-    if (stored) {
-      return JSON.parse(stored);
-    }
+  if (error) {
+    return null;
   }
 
-  return null;
+  if (!data.user) {
+    return null;
+  }
+
+  return mapSupabaseUser(data.user);
 };
 
 export const mockLogout = async (): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  const { error } = await supabaseBrowser.auth.signOut();
 
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('currentUser');
+  if (error) {
+    throw error;
   }
 };
 
-export const setMockCurrentUser = (user: User | null): void => {
-  if (typeof window !== 'undefined') {
-    if (user) {
-      localStorage.setItem('currentUser', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('currentUser');
-    }
-  }
+export const setMockCurrentUser = (_user: AuthUser | null): void => {
+  // plus besoin de stocker manuellement dans localStorage
 };

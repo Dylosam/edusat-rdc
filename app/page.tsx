@@ -13,9 +13,18 @@ import {
   GraduationCap,
   CheckCircle2,
   ArrowRight,
+  Mail,
 } from 'lucide-react';
+import { getPublicPlatformSettings } from '@/lib/platform-settings';
 
-export default function LandingPage() {
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function LandingPage() {
+  const settings = await getPublicPlatformSettings();
+
+  const canRegister = settings.allow_registrations;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -23,17 +32,28 @@ export default function LandingPage() {
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-2">
               <GraduationCap className="h-8 w-8 text-primary" />
-              <span className="font-serif text-xl font-bold">EduStat-RDC</span>
+              <span className="font-serif text-xl font-bold">
+                {settings.platform_name}
+              </span>
             </div>
 
             <nav className="hidden items-center space-x-8 md:flex">
-              <Link href="#features" className="text-sm font-medium transition-colors hover:text-primary">
+              <Link
+                href="#features"
+                className="text-sm font-medium transition-colors hover:text-primary"
+              >
                 Fonctionnalités
               </Link>
-              <Link href="#subjects" className="text-sm font-medium transition-colors hover:text-primary">
+              <Link
+                href="#subjects"
+                className="text-sm font-medium transition-colors hover:text-primary"
+              >
                 Matières
               </Link>
-              <Link href="#about" className="text-sm font-medium transition-colors hover:text-primary">
+              <Link
+                href="#about"
+                className="text-sm font-medium transition-colors hover:text-primary"
+              >
                 À propos
               </Link>
             </nav>
@@ -44,15 +64,37 @@ export default function LandingPage() {
                   Se connecter
                 </Button>
               </Link>
-              <Link href="/auth/register">
-                <Button size="sm">Commencer</Button>
-              </Link>
+
+              {canRegister ? (
+                <Link href="/auth/register">
+                  <Button size="sm">Commencer</Button>
+                </Link>
+              ) : (
+                <Button size="sm" disabled>
+                  Inscriptions fermées
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </header>
 
       <main>
+        {!canRegister && (
+          <section className="border-b border-amber-500/20 bg-amber-500/10 py-3">
+            <div className="container mx-auto px-4 text-center text-sm text-amber-700 dark:text-amber-300">
+              Les inscriptions sont temporairement fermées. Pour toute demande, contacte-nous à{' '}
+              <a
+                href={`mailto:${settings.support_email}`}
+                className="font-medium underline underline-offset-4"
+              >
+                {settings.support_email}
+              </a>
+              .
+            </div>
+          </section>
+        )}
+
         <section className="relative overflow-hidden py-20 sm:py-32">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-4xl text-center">
@@ -62,11 +104,10 @@ export default function LandingPage() {
                 transition={{ duration: 0.6 }}
               >
                 <h1 className="mb-6 font-serif text-4xl font-bold tracking-tight sm:text-6xl">
-                  Réussir l'école avec{' '}
+                  {settings.platform_name},{' '}
                   <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                    méthode, discipline
-                  </span>{' '}
-                  et intelligence
+                    {settings.platform_tagline}
+                  </span>
                 </h1>
 
                 <p className="mb-10 text-lg leading-relaxed text-muted-foreground sm:text-xl">
@@ -76,12 +117,18 @@ export default function LandingPage() {
                 </p>
 
                 <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-                  <Link href="/auth/register">
-                    <Button size="lg" className="px-8 text-base">
-                      Commencer gratuitement
-                      <ArrowRight className="ml-2 h-5 w-5" />
+                  {canRegister ? (
+                    <Link href="/auth/register">
+                      <Button size="lg" className="px-8 text-base">
+                        Commencer gratuitement
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button size="lg" className="px-8 text-base" disabled>
+                      Inscriptions fermées
                     </Button>
-                  </Link>
+                  )}
 
                   <Link href="/auth/login">
                     <Button size="lg" variant="outline" className="px-8 text-base">
@@ -89,6 +136,13 @@ export default function LandingPage() {
                     </Button>
                   </Link>
                 </div>
+
+                {!canRegister && (
+                  <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Mail className="h-4 w-4" />
+                    <span>Support : {settings.support_email}</span>
+                  </div>
+                )}
               </motion.div>
             </div>
           </div>
@@ -258,14 +312,21 @@ export default function LandingPage() {
                 Prêt à commencer votre parcours ?
               </h2>
               <p className="mb-10 text-lg text-muted-foreground">
-                Rejoignez des milliers d&apos;élèves qui progressent chaque jour avec EduStat-RDC
+                Rejoignez des milliers d&apos;élèves qui progressent chaque jour avec {settings.platform_name}
               </p>
-              <Link href="/auth/register">
-                <Button size="lg" className="px-10 text-base">
-                  Créer un compte gratuit
-                  <ArrowRight className="ml-2 h-5 w-5" />
+
+              {canRegister ? (
+                <Link href="/auth/register">
+                  <Button size="lg" className="px-10 text-base">
+                    Créer un compte gratuit
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              ) : (
+                <Button size="lg" className="px-10 text-base" disabled>
+                  Inscriptions fermées
                 </Button>
-              </Link>
+              )}
             </div>
           </div>
         </section>
@@ -273,14 +334,19 @@ export default function LandingPage() {
 
       <footer className="border-t border-border bg-muted/30 py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between md:flex-row">
-            <div className="mb-4 flex items-center space-x-2 md:mb-0">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+            <div className="flex items-center space-x-2">
               <GraduationCap className="h-6 w-6" />
-              <span className="font-serif font-bold">EduStat-RDC</span>
+              <span className="font-serif font-bold">{settings.platform_name}</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © 2024 EduStat-RDC. Tous droits réservés.
-            </p>
+            <div className="text-center md:text-right">
+              <p className="text-sm text-muted-foreground">
+                © 2026 {settings.platform_name}. Tous droits réservés.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Contact : {settings.support_email}
+              </p>
+            </div>
           </div>
         </div>
       </footer>
