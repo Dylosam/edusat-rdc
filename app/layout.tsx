@@ -2,6 +2,7 @@ import './globals.css';
 import 'katex/dist/katex.min.css';
 
 import type { Metadata } from 'next';
+import type { CSSProperties, ReactNode } from 'react';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
@@ -29,26 +30,26 @@ const playfair = Playfair_Display({
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicPlatformSettings();
 
+  const title =
+    settings.seo_title ||
+    `${settings.platform_name} - Réussir l'école avec méthode et discipline`;
+
+  const description =
+    settings.seo_description ||
+    'Plateforme éducative structurée pour les élèves congolais. Cours, exercices, quiz et suivi de progression.';
+
   return {
-    title:
-      settings.seo_title ||
-      `${settings.platform_name} - Réussir l'école avec méthode et discipline`,
-    description:
-      settings.seo_description ||
-      'Plateforme éducative structurée pour les élèves congolais. Cours, exercices, quiz et suivi de progression.',
+    title,
+    description,
     openGraph: {
-      title: settings.seo_title || settings.platform_name,
-      description:
-        settings.seo_description ||
-        'Plateforme éducative structurée pour les élèves congolais. Cours, exercices, quiz et suivi de progression.',
+      title,
+      description,
       images: [{ url: 'https://bolt.new/static/og_default.png' }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: settings.seo_title || settings.platform_name,
-      description:
-        settings.seo_description ||
-        'Plateforme éducative structurée pour les élèves congolais. Cours, exercices, quiz et suivi de progression.',
+      title,
+      description,
       images: [{ url: 'https://bolt.new/static/og_default.png' }],
     },
   };
@@ -57,60 +58,46 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const settings = await getPublicPlatformSettings();
 
-  console.log('[RootLayout] maintenance_mode =', settings.maintenance_mode);
-
   const isMaintenanceEnabled = settings.maintenance_mode === true;
 
-  if (isMaintenanceEnabled) {
-    return (
-      <html lang={settings.default_language} suppressHydrationWarning>
-        <body
-          className={`${inter.variable} ${playfair.variable} font-sans antialiased`}
-          style={
-            {
-              ['--accent-color' as string]: settings.accent_color || '#0f172a',
-            } as React.CSSProperties
-          }
-        >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme={settings.theme_mode === 'system' ? 'dark' : settings.theme_mode}
-            enableSystem={settings.theme_mode === 'system'}
-            disableTransitionOnChange
-          >
-            <MaintenancePage
-              platformName={settings.platform_name}
-              supportEmail={settings.support_email}
-            />
-            <Toaster />
-          </ThemeProvider>
-        </body>
-      </html>
-    );
-  }
+  const bodyStyle = {
+    '--accent-color': settings.accent_color || '#0f172a',
+  } as CSSProperties;
+
+  const resolvedTheme =
+    settings.theme_mode === 'light' || settings.theme_mode === 'dark'
+      ? settings.theme_mode
+      : 'dark';
 
   return (
-    <html lang={settings.default_language} suppressHydrationWarning>
+    <html lang="fr" translate="no">
       <body
         className={`${inter.variable} ${playfair.variable} font-sans antialiased`}
-        style={
-          {
-            ['--accent-color' as string]: settings.accent_color || '#0f172a',
-          } as React.CSSProperties
-        }
+        style={bodyStyle}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme={settings.theme_mode === 'system' ? 'dark' : settings.theme_mode}
+          defaultTheme={resolvedTheme}
           enableSystem={settings.theme_mode === 'system'}
           disableTransitionOnChange
         >
           <AuthPresenceSync />
-          <main className="min-h-screen">{children}</main>
+
+          <div id="app-root" className="min-h-screen">
+            {isMaintenanceEnabled ? (
+              <MaintenancePage
+                platformName={settings.platform_name}
+                supportEmail={settings.support_email}
+              />
+            ) : (
+              <main className="min-h-screen">{children}</main>
+            )}
+          </div>
+
           <Toaster />
         </ThemeProvider>
       </body>

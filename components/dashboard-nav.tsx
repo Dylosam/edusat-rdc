@@ -25,33 +25,54 @@ import {
   Wrench,
   Menu,
   X,
+  Brain,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { mockGetCurrentUser, mockLogout } from '@/lib/mock-api/auth';
-import type { User as UserType } from '@/lib/types';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 const USER_CACHE_KEY = 'edustat:nav:user';
 
+type NavItem = {
+  href: string;
+  label: string;
+};
+
+type NavbarUser = {
+  name?: string;
+  fullName?: string;
+  full_name?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+};
+
 export function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const prefersReducedMotion = useReducedMotion();
 
-  const [user, setUser] = useState<UserType | null>(null);
+  const [user, setUser] = useState<NavbarUser | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [themeMounted, setThemeMounted] = useState(false);
 
-  const navItems = useMemo(
+  const navItems = useMemo<NavItem[]>(
     () => [
       { href: '/dashboard', label: 'Accueil' },
       { href: '/subjects', label: 'Matières' },
+      { href: '/ai', label: 'BΞRN AI' },
       { href: '/calendar', label: 'Calendrier' },
       { href: '/profile', label: 'Profil' },
     ],
     []
   );
+
+  useEffect(() => {
+    setThemeMounted(true);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -63,14 +84,16 @@ export function DashboardNav() {
 
         if (cached) {
           try {
-            const parsed = JSON.parse(cached) as UserType;
+            const parsed = JSON.parse(cached) as NavbarUser;
             if (mounted) setUser(parsed);
           } catch {
-            // ignore
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem(USER_CACHE_KEY);
+            }
           }
         }
 
-        const currentUser = await mockGetCurrentUser();
+        const currentUser = (await mockGetCurrentUser()) as NavbarUser | null;
         if (!mounted) return;
 
         setUser(currentUser ?? null);
@@ -85,6 +108,10 @@ export function DashboardNav() {
       } catch {
         if (!mounted) return;
         setUser(null);
+
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(USER_CACHE_KEY);
+        }
       }
     };
 
@@ -95,24 +122,63 @@ export function DashboardNav() {
     };
   }, []);
 
+  const isActive = useCallback(
+    (href: string) => {
+      if (!pathname) return false;
+      if (pathname === href) return true;
+
+      if (href === '/dashboard') {
+        return pathname === '/dashboard';
+      }
+
+      return pathname.startsWith(`${href}/`);
+    },
+    [pathname]
+  );
+
   const handleLogout = useCallback(async () => {
-    await mockLogout();
+    try {
+      await mockLogout();
+    } finally {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(USER_CACHE_KEY);
+      }
 
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(USER_CACHE_KEY);
+      setUser(null);
+      setMobileMenuOpen(false);
+      toast.success('Déconnexion réussie');
+      router.push('/');
+      router.refresh();
     }
-
-    toast.success('Déconnexion réussie');
-    router.push('/');
   }, [router]);
 
   const closeMobileMenu = useCallback(() => {
     setMobileMenuOpen(false);
   }, []);
 
+  const openMobileMenu = useCallback(() => {
+    setMobileMenuOpen(true);
+  }, []);
+
   const toggleTheme = useCallback(() => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  }, [setTheme, theme]);
+    const currentTheme = theme === 'system' ? resolvedTheme : theme;
+    setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+  }, [resolvedTheme, setTheme, theme]);
+
+  const userDisplayName =
+    user?.name ||
+    user?.fullName ||
+    user?.full_name ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    'Utilisateur';
+
+  const userPhone = user?.phone || user?.email || 'Non renseigné';
+
+  const renderNoTranslateLabel = (label: string) => (
+    <span translate="no" className="notranslate">
+      {label}
+    </span>
+  );
 
   return (
     <>
@@ -125,7 +191,7 @@ export function DashboardNav() {
                   variant="ghost"
                   size="icon"
                   className="rounded-full"
-                  onClick={() => setMobileMenuOpen(true)}
+                  onClick={openMobileMenu}
                   aria-label="Ouvrir le menu"
                 >
                   <Menu className="h-5 w-5" />
@@ -134,7 +200,10 @@ export function DashboardNav() {
 
               <Link prefetch href="/dashboard" className="flex min-w-0 items-center space-x-2">
                 <GraduationCap className="h-8 w-8 shrink-0 text-primary" />
-                <span className="truncate text-lg font-bold font-serif sm:text-xl">
+                <span
+                  translate="no"
+                  className="notranslate truncate font-serif text-lg font-bold sm:text-xl"
+                >
                   EduStat-RDC
                 </span>
               </Link>
@@ -146,10 +215,10 @@ export function DashboardNav() {
                     prefetch
                     href={item.href}
                     className={`text-sm font-medium transition-colors hover:text-primary ${
-                      pathname === item.href ? 'text-primary' : 'text-muted-foreground'
+                      isActive(item.href) ? 'text-primary' : 'text-muted-foreground'
                     }`}
                   >
-                    {item.label}
+                    {renderNoTranslateLabel(item.label)}
                   </Link>
                 ))}
               </nav>
@@ -163,8 +232,14 @@ export function DashboardNav() {
                 aria-label="Changer le thème"
                 className="relative"
               >
-                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                {themeMounted ? (
+                  <>
+                    <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  </>
+                ) : (
+                  <Sun className="h-5 w-5 opacity-0" />
+                )}
                 <span className="sr-only">Changer le thème</span>
               </Button>
 
@@ -178,10 +253,8 @@ export function DashboardNav() {
                 <DropdownMenuContent align="end" sideOffset={8} className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{user?.name || 'Utilisateur'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {user?.phone || 'Non renseigné'}
-                      </p>
+                      <p className="text-sm font-medium">{userDisplayName}</p>
+                      <p className="text-xs text-muted-foreground">{userPhone}</p>
                     </div>
                   </DropdownMenuLabel>
 
@@ -198,6 +271,15 @@ export function DashboardNav() {
                     <Link prefetch href="/subscription" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       Abonnement
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link prefetch href="/ai" className="cursor-pointer">
+                      <Brain className="mr-2 h-4 w-4" />
+                      <span translate="no" className="notranslate">
+                        BΞRN AI
+                      </span>
                     </Link>
                   </DropdownMenuItem>
 
@@ -262,7 +344,10 @@ export function DashboardNav() {
               <div className="flex h-16 items-center justify-between border-b border-border/40 px-4">
                 <div className="flex min-w-0 items-center space-x-2">
                   <GraduationCap className="h-7 w-7 shrink-0 text-primary" />
-                  <span className="truncate text-lg font-bold font-serif">
+                  <span
+                    translate="no"
+                    className="notranslate truncate font-serif text-lg font-bold"
+                  >
                     EduStat-RDC
                   </span>
                 </div>
@@ -287,12 +372,12 @@ export function DashboardNav() {
                       href={item.href}
                       onClick={closeMobileMenu}
                       className={`rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
-                        pathname === item.href
+                        isActive(item.href)
                           ? 'bg-muted text-primary'
                           : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
                       }`}
                     >
-                      {item.label}
+                      {renderNoTranslateLabel(item.label)}
                     </Link>
                   ))}
                 </nav>
@@ -303,7 +388,7 @@ export function DashboardNav() {
                     href="/subscription"
                     onClick={closeMobileMenu}
                     className={`block rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
-                      pathname === '/subscription'
+                      isActive('/subscription')
                         ? 'bg-muted text-primary'
                         : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
                     }`}
@@ -322,7 +407,11 @@ export function DashboardNav() {
                       prefetch
                       href="/outils/horaire"
                       onClick={closeMobileMenu}
-                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
+                      className={`rounded-lg px-3 py-3 text-sm transition-colors ${
+                        isActive('/outils/horaire')
+                          ? 'bg-muted text-primary'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
+                      }`}
                     >
                       Horaire de cours
                     </Link>
@@ -331,7 +420,11 @@ export function DashboardNav() {
                       prefetch
                       href="/outils/tableau-periodique"
                       onClick={closeMobileMenu}
-                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
+                      className={`rounded-lg px-3 py-3 text-sm transition-colors ${
+                        isActive('/outils/tableau-periodique')
+                          ? 'bg-muted text-primary'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
+                      }`}
                     >
                       Tableau périodique
                     </Link>
@@ -340,7 +433,11 @@ export function DashboardNav() {
                       prefetch
                       href="/outils/tableau-statistique"
                       onClick={closeMobileMenu}
-                      className="rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-primary"
+                      className={`rounded-lg px-3 py-3 text-sm transition-colors ${
+                        isActive('/outils/tableau-statistique')
+                          ? 'bg-muted text-primary'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-primary'
+                      }`}
                     >
                       Tableau statistique
                     </Link>

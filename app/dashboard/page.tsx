@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect, type ComponentType } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { motion, useReducedMotion } from 'framer-motion';
-import { DashboardNav } from '@/components/dashboard-nav';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
+import { DashboardNav } from "@/components/dashboard-nav";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   BookOpen,
   Clock,
@@ -16,38 +16,33 @@ import {
   TrendingUp,
   ArrowRight,
   Lock,
-} from 'lucide-react';
-import { mockGetCurrentUser } from '@/lib/mock-api/auth';
-import { getSubjects } from '@/lib/supabase/queries';
-import type { User } from '@/lib/types';
-import * as LucideIcons from 'lucide-react';
+} from "lucide-react";
+import { mockGetCurrentUser } from "@/lib/mock-api/auth";
+import { getSubjects } from "@/lib/supabase/queries";
+import type { User } from "@/lib/types";
+import { normalizeSubject, getSubjectIcon, type NormalizedSubject } from "@/lib/subjects";
 
-type DashboardSubject = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  chaptersCount: number;
-  progress: number;
+type AuthUserLike = Partial<User> & {
+  id?: string;
+  name?: string;
+  email?: string;
+  level?: string;
+  subscription?: string;
+  joinDate?: string;
+  totalTimeStudied?: number;
 };
 
-type IconComponentType = ComponentType<{ className?: string }>;
-
-function normalizeSubject(subject: any): DashboardSubject {
+function mapAuthUserToUser(authUser: AuthUserLike): User {
   return {
-    id: String(subject.id ?? subject.slug ?? `subject-${Math.random().toString(36).slice(2)}`),
-    slug: String(subject.slug ?? subject.id ?? ''),
-    name: String(subject.name ?? subject.title ?? 'Matière'),
-    description: String(subject.description ?? subject.summary ?? ''),
-    icon: String(subject.icon ?? 'BookOpen'),
-    color: String(subject.color ?? 'from-primary/20 to-primary/5'),
-    chaptersCount: Array.isArray(subject.chapters)
-      ? subject.chapters.length
-      : Number(subject.chaptersCount ?? 0),
-    progress: Number(subject.progress ?? 0),
-  };
+    ...authUser,
+    id: String(authUser.id ?? ""),
+    name: String(authUser.name ?? "Élève"),
+    email: String(authUser.email ?? ""),
+    level: String(authUser.level ?? "Débutant"),
+    subscription: String(authUser.subscription ?? "free"),
+    joinDate: String(authUser.joinDate ?? new Date().toISOString()),
+    totalTimeStudied: Number(authUser.totalTimeStudied ?? 0),
+  } as User;
 }
 
 export default function DashboardPage() {
@@ -55,7 +50,7 @@ export default function DashboardPage() {
   const prefersReducedMotion = useReducedMotion();
 
   const [user, setUser] = useState<User | null>(null);
-  const [subjects, setSubjects] = useState<DashboardSubject[]>([]);
+  const [subjects, setSubjects] = useState<NormalizedSubject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -68,21 +63,23 @@ export default function DashboardPage() {
         if (!mounted) return;
 
         if (!currentUser) {
-          router.push('/auth/login');
+          router.push("/auth/login");
           return;
         }
 
-        setUser(currentUser);
+        setUser(mapAuthUserToUser(currentUser as AuthUserLike));
 
         const subjectsData = await getSubjects();
 
         if (!mounted) return;
 
         const normalizedSubjects = Array.isArray(subjectsData)
-          ? subjectsData.map(normalizeSubject)
+          ? subjectsData.map((subject, index) => normalizeSubject(subject, index))
           : [];
 
         setSubjects(normalizedSubjects);
+      } catch (error) {
+        console.error("Erreur lors du chargement du dashboard:", error);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -113,9 +110,7 @@ export default function DashboardPage() {
 
   const hoursStudied = Math.floor((user?.totalTimeStudied || 0) / 60);
   const minutesStudied = (user?.totalTimeStudied || 0) % 60;
-
-  const iconsMap = LucideIcons as unknown as Record<string, IconComponentType>;
-  const firstName = user?.name?.split(' ')[0] ?? 'élève';
+  const firstName = user?.name?.split(" ")[0] ?? "élève";
 
   return (
     <div className="min-h-screen bg-background">
@@ -128,7 +123,7 @@ export default function DashboardPage() {
           transition={{ duration: 0.3 }}
         >
           <div className="mb-6 sm:mb-8">
-            <h1 className="mb-1 text-3xl font-bold font-serif leading-tight sm:mb-2 sm:text-4xl">
+            <h1 className="mb-1 font-serif text-3xl font-bold leading-tight sm:mb-2 sm:text-4xl">
               Bonjour, {firstName} !
             </h1>
             <p className="text-muted-foreground">
@@ -191,7 +186,8 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold capitalize sm:text-3xl">
                   {user?.subscription}
                 </div>
-                {user?.subscription === 'free' && (
+
+                {user?.subscription === "free" && (
                   <Link prefetch href="/subscription">
                     <Button variant="link" className="mt-1 h-auto p-0 text-xs">
                       Passer à Premium
@@ -203,7 +199,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-bold font-serif">Vos matières</h2>
+            <h2 className="font-serif text-2xl font-bold">Vos matières</h2>
             <Link prefetch href="/subjects" className="w-full sm:w-auto">
               <Button variant="ghost" size="sm" className="w-full justify-center sm:w-auto">
                 Voir tout
@@ -214,11 +210,11 @@ export default function DashboardPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
             {subjects.map((subject, index) => {
-              const IconComponent = iconsMap[subject.icon] ?? BookOpen;
-              const isPremium = index > 5 && user?.subscription === 'free';
+              const IconComponent = getSubjectIcon(subject.icon);
+              const isPremium = index > 5 && user?.subscription === "free";
               const href =
                 isPremium || !subject.slug?.trim()
-                  ? '/subscription'
+                  ? "/subscription"
                   : `/subjects/${subject.slug}`;
 
               return (
@@ -240,14 +236,15 @@ export default function DashboardPage() {
                       )}
 
                       <div
-                        className={`absolute inset-0 opacity-5 bg-gradient-to-br ${subject.color}`}
+                        className={`absolute inset-0 bg-gradient-to-br opacity-5 ${subject.color}`}
                       />
 
                       <CardHeader className="relative z-[1] p-4 sm:p-5 lg:p-6">
                         <div className="flex items-start justify-between gap-3">
                           <IconComponent className="h-7 w-7 shrink-0 text-primary sm:h-8 sm:w-8" />
                           <Badge variant="secondary" className="shrink-0">
-                            {subject.chaptersCount} chapitres
+                            {subject.chaptersCount} chapitre
+                            {subject.chaptersCount > 1 ? "s" : ""}
                           </Badge>
                         </div>
 
@@ -256,7 +253,8 @@ export default function DashboardPage() {
                         </CardTitle>
 
                         <p className="text-sm text-muted-foreground">
-                          {subject.description || 'Commence cette matière et progresse chapitre par chapitre.'}
+                          {subject.description ||
+                            "Commence cette matière et progresse chapitre par chapitre."}
                         </p>
                       </CardHeader>
 
@@ -276,7 +274,7 @@ export default function DashboardPage() {
             })}
           </div>
 
-          {user?.subscription === 'free' && (
+          {user?.subscription === "free" && (
             <motion.div
               initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -286,7 +284,7 @@ export default function DashboardPage() {
               <Card className="rounded-2xl border-blue-600/20 bg-gradient-to-r from-blue-600/10 to-cyan-600/10">
                 <CardContent className="p-5 text-center sm:p-6 lg:p-8">
                   <Trophy className="mx-auto mb-4 h-10 w-10 text-blue-600 sm:h-12 sm:w-12" />
-                  <h3 className="mb-2 text-xl font-bold font-serif sm:text-2xl">
+                  <h3 className="mb-2 font-serif text-xl font-bold sm:text-2xl">
                     Passez à Premium
                   </h3>
                   <p className="mx-auto mb-5 max-w-md text-sm text-muted-foreground sm:mb-6 sm:text-base">

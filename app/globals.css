@@ -121,3 +121,48 @@
   border-color: var(--accent-color);
 }
 
+@keyframes bern-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.bern-shimmer {
+  background: linear-gradient(
+    90deg,
+    #999 0%,
+    #fff 40%,
+    #999 80%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: bern-shimmer 2s linear infinite;
+}
+
+@keyframes bern-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.bern-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(120, 120, 120, 1) 0%,
+    rgba(255, 255, 255, 1) 45%,
+    rgba(120, 120, 120, 1) 90%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: bern-shimmer 1.8s linear infinite;
+}

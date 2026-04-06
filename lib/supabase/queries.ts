@@ -7,12 +7,21 @@ import { supabaseServer } from "./server";
 export async function getSubjects() {
   const { data, error } = await supabaseServer
     .from("subjects")
-    .select("*")
+    .select(`
+      *,
+      chapters (
+        id
+      )
+    `)
     .eq("is_published", true)
     .order("order_index", { ascending: true });
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+
+  return (data ?? []).map((subject: any) => ({
+    ...subject,
+    chaptersCount: Array.isArray(subject.chapters) ? subject.chapters.length : 0,
+  }));
 }
 
 export async function getSubjectBySlug(slug: string) {
