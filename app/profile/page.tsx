@@ -57,6 +57,27 @@ function normalizeSubject(subject: any): ProfileSubject {
   };
 }
 
+function normalizeUser(rawUser: any): User {
+  return {
+    id: String(rawUser?.id ?? ''),
+    name: String(
+      rawUser?.name ??
+        rawUser?.fullName ??
+        [rawUser?.firstName, rawUser?.lastName].filter(Boolean).join(' ') ??
+        'Utilisateur'
+    ),
+    email: rawUser?.email ? String(rawUser.email) : '',
+    phone: rawUser?.phone ? String(rawUser.phone) : '',
+    level: String(rawUser?.level ?? rawUser?.classLevel ?? 'Non défini'),
+    subscription:
+      rawUser?.subscription === 'premium' || rawUser?.subscription === 'free'
+        ? rawUser.subscription
+        : 'free',
+    joinDate: String(rawUser?.joinDate ?? rawUser?.createdAt ?? new Date().toISOString()),
+    totalTimeStudied: Number(rawUser?.totalTimeStudied ?? 0),
+  };
+}
+
 function buildProgressFromSubjects(subjects: ProfileSubject[]): ProfileProgress[] {
   return subjects.map((subject) => {
     const totalChapters = Math.max(subject.chaptersCount, 0);
@@ -103,7 +124,9 @@ export default function ProfilePage() {
           ? subjectsData.map(normalizeSubject)
           : [];
 
-        setUser(currentUser);
+        const normalizedUser = normalizeUser(currentUser);
+
+        setUser(normalizedUser);
         setSubjects(normalizedSubjects);
       } finally {
         if (mounted) setIsLoading(false);

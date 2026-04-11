@@ -43,6 +43,21 @@ export type StatisticColumnKey =
   | "y2"
   | "xy";
 
+  export type StatisticMetricKey =
+  | "count"
+  | "sum"
+  | "mean"
+  | "median"
+  | "mode"
+  | "min"
+  | "max"
+  | "range"
+  | "q1"
+  | "q3"
+  | "iqr"
+  | "variance"
+  | "stdDev";
+
 export interface StatisticColumnDefinition {
   key: StatisticColumnKey;
   label: string;

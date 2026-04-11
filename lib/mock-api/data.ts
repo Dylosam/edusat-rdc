@@ -1,9 +1,9 @@
 import { readProgressStore } from "@/lib/progress/index";
 import { isQuizPassed } from "@/lib/progress/quiz";
 
-import * as SubjectsModule from "@/lib/mock-data/subjects";
-import * as ChaptersModule from "@/lib/mock-data/chapters";
-import * as LessonsModule from "@/lib/data/lessons";
+import { subjects } from "@/lib/mock-data/subjects";
+import { chapters } from "@/lib/mock-data/chapters";
+import { lessonsByChapter } from "@/lib/data/lessons";
 import * as QuizzesModule from "@/lib/mock-api/quizzes";
 
 type AnyObj = Record<string, any>;
@@ -33,7 +33,28 @@ export type LessonContentBlock =
   | { type: "text"; value: string }
   | { type: "tip"; value: string }
   | { type: "example"; title?: string; value: string }
-  | { type: "formula"; value: string };
+  | { type: "formula"; value: string }
+  | {
+      type: "richText";
+      segments: Array<
+        | { type: "text"; value: string }
+        | { type: "math"; value: string }
+      >;
+    }
+  | {
+      type: "solutionSteps";
+      title?: string;
+      steps: string[];
+    }
+  | {
+      type: "exercise";
+      title: string;
+      prompt: string;
+      choices: string[];
+      correctChoiceIndex: number;
+      hint?: string;
+      solutionSteps?: string[];
+    };
 
 export type Lesson = {
   id: string;
@@ -72,29 +93,15 @@ function safeArray<T = any>(value: unknown): T[] {
 }
 
 function getSubjectsRaw(): AnyObj[] {
-  return safeArray<AnyObj>(
-    (SubjectsModule as AnyObj).subjects ??
-      (SubjectsModule as AnyObj).SUBJECTS ??
-      (SubjectsModule as AnyObj).default
-  );
+  return subjects as AnyObj[];
 }
 
 function getChaptersRaw(): AnyObj[] {
-  return safeArray<AnyObj>(
-    (ChaptersModule as AnyObj).chapters ??
-      (ChaptersModule as AnyObj).CHAPTERS ??
-      (ChaptersModule as AnyObj).default
-  );
+  return chapters as AnyObj[];
 }
 
 function getLessonsMap(): Record<string, AnyObj[]> {
-  const map =
-    (LessonsModule as AnyObj).lessonsByChapter ??
-    (LessonsModule as AnyObj).LESSONS_BY_CHAPTER ??
-    (LessonsModule as AnyObj).default ??
-    {};
-
-  return map && typeof map === "object" ? map : {};
+  return lessonsByChapter as Record<string, AnyObj[]>;
 }
 
 function normalizeSubject(item: AnyObj, index: number): Subject {
@@ -114,7 +121,11 @@ function normalizeSubject(item: AnyObj, index: number): Subject {
   };
 }
 
-function normalizeChapter(item: AnyObj, index: number, subject?: Subject | null): Chapter {
+function normalizeChapter(
+  item: AnyObj,
+  index: number,
+  subject?: Subject | null
+): Chapter {
   return {
     ...item,
     id: toStr(item.id || item.chapterId || `chapter-${index + 1}`),
@@ -122,7 +133,8 @@ function normalizeChapter(item: AnyObj, index: number, subject?: Subject | null)
     subjectSlug: toStr(item.subjectSlug || subject?.slug || ""),
     title: toStr(item.title || item.name || `Chapitre ${index + 1}`),
     description: item.description,
-    estimatedMinutes: Number(item.estimatedMinutes ?? item.minutes ?? 0) || undefined,
+    estimatedMinutes:
+      Number(item.estimatedMinutes ?? item.minutes ?? 0) || undefined,
     order: Number(item.order ?? index + 1),
     quizId: item.quizId ? toStr(item.quizId) : undefined,
   };
@@ -134,12 +146,14 @@ function normalizeLesson(item: AnyObj, index: number, chapterId: string): Lesson
     id: toStr(item.id || item.lessonId || `lesson-${index + 1}`),
     chapterId: toStr(item.chapterId || chapterId),
     title: toStr(item.title || item.name || `Leçon ${index + 1}`),
-    minutes: Number(item.minutes ?? item.estimatedMinutes ?? 0) || undefined,
-    contentBlocks: Array.isArray(item.contentBlocks)
-  ? item.contentBlocks
-  : Array.isArray(item.blocks)
-  ? item.blocks
-  : [],
+    minutes: Number(item.minutes ?? item.estimatedMinutes ?? item.durationMin ?? 0) || undefined,
+    contentBlocks: Array.isArray(item.content)
+      ? item.content
+      : Array.isArray(item.contentBlocks)
+      ? item.contentBlocks
+      : Array.isArray(item.blocks)
+      ? item.blocks
+      : [],
     order: Number(item.order ?? index + 1),
     summary: item.summary,
     videoUrl: item.videoUrl,
@@ -164,32 +178,32 @@ export async function getSubjects(): Promise<Subject[]> {
 
 export async function getSubjectBySlug(slug: string): Promise<Subject | null> {
   const key = slugify(slug);
-  const subjects = await getSubjects();
+  const list = await getSubjects();
 
   return (
-    subjects.find((subject) => slugify(subject.slug) === key) ??
-    subjects.find((subject) => slugify(subject.id) === key) ??
+    list.find((subject) => slugify(subject.slug) === key) ??
+    list.find((subject) => slugify(subject.id) === key) ??
     null
   );
 }
 
 export async function getSubjectById(id: string): Promise<Subject | null> {
   const key = slugify(id);
-  const subjects = await getSubjects();
+  const list = await getSubjects();
 
-  return subjects.find((subject) => slugify(subject.id) === key) ?? null;
+  return list.find((subject) => slugify(subject.id) === key) ?? null;
 }
 
 export async function getChaptersBySubject(subjectIdOrSlug: string): Promise<Chapter[]> {
   const key = slugify(subjectIdOrSlug);
-  const subjects = await getSubjects();
+  const subjectList = await getSubjects();
 
   const subject =
-    subjects.find(
+    subjectList.find(
       (item) => slugify(item.id) === key || slugify(item.slug) === key
     ) ?? null;
 
-  const chapters = getChaptersRaw()
+  const chapterList = getChaptersRaw()
     .filter((chapter) => {
       const chapterSubjectId = slugify(chapter.subjectId);
       const chapterSubjectSlug = slugify(chapter.subjectSlug);
@@ -206,24 +220,23 @@ export async function getChaptersBySubject(subjectIdOrSlug: string): Promise<Cha
     .map((chapter, index) => normalizeChapter(chapter, index, subject))
     .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
 
-  return chapters;
+  return chapterList;
 }
 
 export async function getChapterById(chapterId: string): Promise<Chapter | null> {
   const key = slugify(chapterId);
+
   const rawChapter =
     getChaptersRaw().find(
       (chapter) =>
         slugify(chapter.id) === key || slugify(chapter.chapterId) === key
     ) ?? null;
 
-  if (!rawChapter) {
-    return null;
-  }
+  if (!rawChapter) return null;
 
-  const subjects = await getSubjects();
+  const subjectList = await getSubjects();
   const subject =
-    subjects.find(
+    subjectList.find(
       (item) =>
         slugify(item.id) === slugify(rawChapter.subjectId) ||
         slugify(item.slug) === slugify(rawChapter.subjectSlug)
@@ -234,15 +247,6 @@ export async function getChapterById(chapterId: string): Promise<Chapter | null>
 
 export async function getLessonsByChapterId(chapterId: string): Promise<Lesson[]> {
   const key = toStr(chapterId);
-
-  const exportedFn = (LessonsModule as AnyObj).getLessonsByChapterId;
-  if (typeof exportedFn === "function") {
-    const raw = await exportedFn(key);
-    return safeArray<AnyObj>(raw)
-      .map((lesson, index) => normalizeLesson(lesson, index, key))
-      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
-  }
-
   const lessonsMap = getLessonsMap();
   const rawLessons = safeArray<AnyObj>(lessonsMap[key]);
 
@@ -253,15 +257,6 @@ export async function getLessonsByChapterId(chapterId: string): Promise<Lesson[]
 
 export async function getLessonById(lessonId: string): Promise<Lesson | null> {
   const key = slugify(lessonId);
-
-  const exportedFn = (LessonsModule as AnyObj).getLessonById;
-  if (typeof exportedFn === "function") {
-    const raw = await exportedFn(lessonId);
-    if (raw) {
-      return normalizeLesson(raw, 0, toStr(raw.chapterId));
-    }
-  }
-
   const lessonsMap = getLessonsMap();
 
   for (const [chapterId, lessons] of Object.entries(lessonsMap)) {
@@ -280,6 +275,7 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
 
 export async function getQuizById(quizId: string): Promise<Quiz | null> {
   const exportedFn = (QuizzesModule as AnyObj).getQuizById;
+
   if (typeof exportedFn === "function") {
     const raw = await exportedFn(quizId);
     return raw ? normalizeQuiz(raw) : null;
@@ -290,6 +286,7 @@ export async function getQuizById(quizId: string): Promise<Quiz | null> {
 
 export async function getQuizByChapterId(chapterId: string): Promise<Quiz | null> {
   const chapter = await getChapterById(chapterId);
+
   if (!chapter?.quizId) {
     return null;
   }
@@ -298,12 +295,14 @@ export async function getQuizByChapterId(chapterId: string): Promise<Quiz | null
 }
 
 export async function getDashboardSnapshot() {
-  const subjects = await getSubjects();
+  const subjectList = await getSubjects();
 
   const store = (readProgressStore() ?? {}) as AnyObj;
   const chaptersStatus: AnyObj = store.chapters ?? store.chapterStatus ?? {};
   const quizzes: AnyObj = store.quizzes ?? store.quizResults ?? {};
-  const minutesStudied = Number(store.stats?.minutesStudied ?? store.minutesStudied ?? 0);
+  const minutesStudied = Number(
+    store.stats?.minutesStudied ?? store.minutesStudied ?? 0
+  );
 
   const chapterEntries = Object.entries(chaptersStatus);
   const totalTrackedChapters = chapterEntries.length;
@@ -340,7 +339,7 @@ export async function getDashboardSnapshot() {
   const minutes = minutesStudied % 60;
 
   return {
-    subjectsCount: subjects.length,
+    subjectsCount: subjectList.length,
     progressPercent,
     studiedTimeLabel: `${hours}h ${minutes}m`,
     quizPassPercent,

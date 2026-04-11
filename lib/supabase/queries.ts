@@ -146,11 +146,19 @@ export async function getLessonById(id: string) {
 export async function getLessonBlocks(lessonId: string) {
   const { data, error } = await supabaseServer
     .from("lesson_content_blocks")
-    .select("*")
+    .select(`
+      id,
+      lesson_id,
+      order_index,
+      type,
+      content,
+      payload
+    `)
     .eq("lesson_id", lessonId)
     .order("order_index", { ascending: true });
 
   if (error) throw new Error(error.message);
+
   return data ?? [];
 }
 

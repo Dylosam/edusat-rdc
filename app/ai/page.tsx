@@ -261,7 +261,7 @@ export default function AiPage() {
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Écris ta question... (Entrée pour envoyer, Shift + Entrée pour aller à la ligne)"
+                placeholder="Poses ta question à BΞRN ..."
                 rows={1}
                 className="min-h-[44px] max-h-[160px] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
               />

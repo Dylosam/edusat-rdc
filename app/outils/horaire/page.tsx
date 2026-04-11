@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardNav } from "@/components/dashboard-nav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,10 +22,8 @@ import {
   RotateCcw,
   Plus,
   Trash2,
-  Pencil,
   Save,
   Palette,
-  Clock,
 } from "lucide-react";
 
 import type {
@@ -113,10 +111,6 @@ export default function TimetablePage() {
     writeTimetable(next);
   }
 
-  function updateMeta(patch: Partial<TimetableStateV1["meta"]>) {
-    persist({ ...state, meta: { ...state.meta, ...patch } });
-  }
-
   function toggleDay(key: WeekdayKey) {
     const days = state.days.map((d) => (d.key === key ? { ...d, enabled: !d.enabled } : d));
     persist({ ...state, days });
@@ -126,8 +120,8 @@ export default function TimetablePage() {
     const p: TimetablePeriod = {
       id: `p_${uid()}`,
       label: `P${state.periods.length + 1}`,
-      start: "12:10",
-      end: "13:00",
+      start: "07:30",
+      end: "08:20",
     };
     persist({ ...state, periods: [...state.periods, p] });
   }
@@ -253,20 +247,20 @@ export default function TimetablePage() {
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
         >
-          <div className="mb-6 sm:mb-8">
-            <div className="flex flex-col gap-4 sm:gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="mb-5 sm:mb-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <h1 className="mb-2 text-3xl font-bold font-serif leading-tight sm:text-4xl">
+                <h1 className="mb-2 text-2xl font-bold font-serif leading-tight sm:text-4xl">
                   Horaire de cours
                 </h1>
-                <p className="text-sm leading-6 text-muted-foreground sm:text-base">
-                  100% personnalisable · Sauvegarde automatique · Dernière maj :{" "}
+                <p className="text-xs leading-5 text-muted-foreground sm:text-base sm:leading-6">
+                  Sauvegarde automatique · Dernière maj :{" "}
                   <span className="font-medium">{lastUpdate}</span>
                 </p>
               </div>
@@ -293,50 +287,16 @@ export default function TimetablePage() {
             </div>
           </div>
 
-          <div className="mb-8 grid gap-4 sm:gap-5 lg:mb-12 lg:grid-cols-3 lg:gap-6">
-            <Card className="lg:col-span-2 rounded-2xl">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
-                <CardTitle className="text-base sm:text-lg">Infos</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
+          <section className="mb-4 sm:mb-6">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold font-serif sm:text-2xl">Tableau</h2>
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  Clique sur une case pour modifier son contenu.
+                </p>
+              </div>
 
-              <CardContent className="grid gap-3 p-4 pt-0 sm:grid-cols-3 sm:gap-4 sm:p-6 sm:pt-0">
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Titre</div>
-                  <Input
-                    value={state.meta.title}
-                    onChange={(e) => updateMeta({ title: e.target.value })}
-                    placeholder="Horaire de cours"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">École (optionnel)</div>
-                  <Input
-                    value={(state.meta as any).school ?? ""}
-                    onChange={(e) => updateMeta({ school: e.target.value } as any)}
-                    placeholder="Ex: Institut ..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Année (optionnel)</div>
-                  <Input
-                    value={(state.meta as any).year ?? ""}
-                    onChange={(e) => updateMeta({ year: e.target.value } as any)}
-                    placeholder="2025-2026"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
-                <CardTitle className="text-base sm:text-lg">Jours affichés</CardTitle>
-                <Badge variant="secondary">{visibleDays.length} jours</Badge>
-              </CardHeader>
-
-              <CardContent className="flex flex-wrap gap-2 p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="flex flex-wrap gap-2">
                 {enabledDays.map((d) => (
                   <Button
                     key={d.key}
@@ -348,179 +308,141 @@ export default function TimetablePage() {
                     {d.label}
                   </Button>
                 ))}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
 
-          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-bold font-serif">Créneaux</h2>
-            <Button onClick={addPeriod} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Ajouter un créneau
-            </Button>
-          </div>
-
-          <div className="mb-8 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:mb-12 lg:grid-cols-3 lg:gap-6">
-            {state.periods.map((p) => (
-              <Card key={p.id} className="rounded-2xl">
-                <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <CardTitle className="text-base sm:text-lg">{p.label}</CardTitle>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {p.start} → {p.end}
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        title="Modifier"
-                        onClick={() => openPeriodEdit(p)}
-                        className="h-9 w-9"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        title="Supprimer"
-                        onClick={() => deletePeriod(p.id)}
-                        className="h-9 w-9"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="grid grid-cols-1 gap-2 p-4 pt-0 sm:grid-cols-3 sm:p-6 sm:pt-0">
-                  <Input
-                    value={p.label}
-                    onChange={(e) => updatePeriod(p.id, { label: e.target.value })}
-                    placeholder="P1"
-                  />
-                  <Input
-                    value={p.start}
-                    onChange={(e) => updatePeriod(p.id, { start: e.target.value })}
-                    placeholder="07:30"
-                  />
-                  <Input
-                    value={p.end}
-                    onChange={(e) => updatePeriod(p.id, { end: e.target.value })}
-                    placeholder="08:20"
-                  />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-bold font-serif">Grille</h2>
-            <div className="text-sm text-muted-foreground">Clique une case pour éditer.</div>
-          </div>
-
-          <Card className="overflow-hidden rounded-2xl">
-            <CardContent className="p-0">
-              <div className="w-full overflow-x-auto">
-                <div className="min-w-[760px] sm:min-w-[900px]">
-                  <div
-                    className="grid border-b"
-                    style={{
-                      gridTemplateColumns: `180px repeat(${visibleDays.length}, 1fr)`,
-                    }}
-                  >
-                    <div className="px-3 py-3 text-sm font-medium sm:px-5 sm:py-4">
-                      Créneaux
-                    </div>
-                    {visibleDays.map((d) => (
-                      <div key={d.key} className="px-3 py-3 text-sm font-medium sm:px-5 sm:py-4">
-                        {d.label}
-                      </div>
-                    ))}
-                  </div>
-
-                  {state.periods.map((p) => (
+            <Card className="overflow-hidden rounded-2xl">
+              <CardContent className="p-0">
+                <div className="w-full overflow-x-auto">
+                  <div className="min-w-[720px] sm:min-w-[920px]">
                     <div
-                      key={p.id}
-                      className="grid border-b last:border-b-0"
+                      className="grid border-b bg-muted/20"
                       style={{
-                        gridTemplateColumns: `180px repeat(${visibleDays.length}, 1fr)`,
+                        gridTemplateColumns: `120px repeat(${visibleDays.length}, minmax(110px, 1fr))`,
                       }}
                     >
-                      <div className="px-3 py-4 sm:px-5 sm:py-5">
-                        <div className="font-semibold">{p.label}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">
-                          {p.start} → {p.end}
+                      <div className="px-3 py-3 text-xs font-semibold uppercase tracking-wide sm:px-5 sm:py-4 sm:text-sm">
+                        Créneaux
+                      </div>
+                      {visibleDays.map((d) => (
+                        <div
+                          key={d.key}
+                          className="px-3 py-3 text-xs font-semibold uppercase tracking-wide sm:px-5 sm:py-4 sm:text-sm"
+                        >
+                          {d.label}
                         </div>
+                      ))}
+                    </div>
+
+                    {state.periods.map((p) => (
+                      <div
+                        key={p.id}
+                        className="grid border-b last:border-b-0"
+                        style={{
+                          gridTemplateColumns: `120px repeat(${visibleDays.length}, minmax(110px, 1fr))`,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => openPeriodEdit(p)}
+                          className="bg-muted/10 px-2 py-3 text-left transition hover:bg-muted/30 sm:px-5 sm:py-5"
+                        >
+                          <div className="text-sm font-semibold sm:text-base">{p.label}</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground sm:text-sm">
+                            {p.start} → {p.end}
+                          </div>
+                        </button>
+
+                        {visibleDays.map((d) => {
+                          const entry = grid?.[d.key]?.[p.id];
+                          const has = !!entry?.subject?.trim();
+
+                          return (
+                            <button
+                              key={`${d.key}_${p.id}`}
+                              onClick={() => openCellEditor(d.key, p.id)}
+                              className={[
+                                "min-h-[88px] border-l px-2 py-3 text-left transition hover:bg-muted/30 sm:min-h-[110px] sm:px-4 sm:py-4",
+                                has ? "relative overflow-hidden" : "",
+                              ].join(" ")}
+                            >
+                              {has ? (
+                                <>
+                                  <div
+                                    className={[
+                                      "absolute inset-0 bg-gradient-to-br opacity-10",
+                                      entry?.color ?? COLOR_PRESETS[0],
+                                    ].join(" ")}
+                                  />
+
+                                  {!(entry?.room || entry?.teacher || entry?.note) ? (
+                                    <div className="relative flex h-full items-center justify-center">
+                                      <div className="line-clamp-2 text-center text-xs font-semibold sm:text-sm">
+                                        {entry?.subject}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="relative min-w-0">
+                                      <div className="line-clamp-2 text-xs font-semibold sm:text-sm">
+                                        {entry?.subject}
+                                      </div>
+
+                                      {entry?.room || entry?.teacher ? (
+                                        <div className="mt-1 line-clamp-2 text-[11px] text-muted-foreground sm:text-xs">
+                                          {(entry?.room ? `Salle ${entry.room}` : "") +
+                                            (entry?.teacher ? ` • ${entry.teacher}` : "")}
+                                        </div>
+                                      ) : null}
+
+                                      {entry?.note ? (
+                                        <div className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
+                                          {entry.note}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-center text-xs text-muted-foreground sm:text-sm">—</div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+
+                    <div
+                      className="grid"
+                      style={{
+                        gridTemplateColumns: `120px repeat(${visibleDays.length}, minmax(110px, 1fr))`,
+                      }}
+                    >
+                      <div className="border-t bg-muted/10 px-2 py-3 sm:px-5 sm:py-4">
+                        <Button
+                          onClick={addPeriod}
+                          variant="outline"
+                          className="h-10 w-full justify-center rounded-xl"
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Ajouter
+                        </Button>
                       </div>
 
-                      {visibleDays.map((d) => {
-                        const entry = grid?.[d.key]?.[p.id];
-                        const has = !!entry?.subject?.trim();
-
-                        return (
-                          <button
-                            key={`${d.key}_${p.id}`}
-                            onClick={() => openCellEditor(d.key, p.id)}
-                            className={[
-                              "border-l px-3 py-4 text-left transition hover:bg-muted/30 sm:px-5 sm:py-5",
-                              has ? "relative overflow-hidden" : "",
-                            ].join(" ")}
-                          >
-                            {has ? (
-                              <>
-                                <div
-                                  className={[
-                                    "absolute inset-0 bg-gradient-to-br opacity-10",
-                                    entry?.color ?? COLOR_PRESETS[0],
-                                  ].join(" ")}
-                                />
-
-                                {!(entry?.room || entry?.teacher || entry?.note) ? (
-                                  <div className="relative flex h-full items-center justify-center">
-                                    <div className="text-sm font-semibold sm:text-base">
-                                      {entry?.subject}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="relative min-w-0">
-                                    <div className="line-clamp-1 text-sm font-semibold sm:text-base">
-                                      {entry?.subject}
-                                    </div>
-
-                                    {entry?.room || entry?.teacher ? (
-                                      <div className="mt-1 line-clamp-1 text-xs text-muted-foreground sm:text-sm">
-                                        {(entry?.room ? `Salle ${entry.room}` : "") +
-                                          (entry?.teacher ? ` • ${entry.teacher}` : "")}
-                                      </div>
-                                    ) : null}
-
-                                    {entry?.note ? (
-                                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                        {entry.note}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <div className="text-muted-foreground">—</div>
-                            )}
-                          </button>
-                        );
-                      })}
+                      {visibleDays.map((d) => (
+                        <div
+                          key={`add_${d.key}`}
+                          className="border-l border-t bg-background/50"
+                        />
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </section>
 
           <Dialog open={openCell} onOpenChange={setOpenCell}>
-            <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl sm:max-w-lg">
+            <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-y-auto rounded-2xl p-4 sm:max-w-lg sm:p-6">
               <DialogHeader>
                 <DialogTitle>Éditer un cours</DialogTitle>
               </DialogHeader>
@@ -593,7 +515,7 @@ export default function TimetablePage() {
                 </div>
               </div>
 
-              <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <DialogFooter className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <Button variant="outline" onClick={clearCell} className="w-full sm:w-auto">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Supprimer
@@ -617,9 +539,11 @@ export default function TimetablePage() {
           </Dialog>
 
           <Dialog open={openPeriodEditor} onOpenChange={setOpenPeriodEditor}>
-            <DialogContent className="w-[calc(100vw-2rem)] rounded-3xl border border-border/70 bg-background/95 shadow-2xl backdrop-blur-xl sm:max-w-md">
+            <DialogContent className="w-[calc(100vw-1rem)] rounded-3xl border border-border/70 bg-background/95 p-4 shadow-2xl backdrop-blur-xl sm:max-w-md sm:p-6">
               <DialogHeader>
-                <DialogTitle className="text-xl font-semibold">Modifier le créneau</DialogTitle>
+                <DialogTitle className="text-lg font-semibold sm:text-xl">
+                  Modifier le créneau
+                </DialogTitle>
               </DialogHeader>
 
               {editingPeriod && (
@@ -670,6 +594,18 @@ export default function TimetablePage() {
                       {editingPeriod.start} → {editingPeriod.end}
                     </div>
                   </div>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      deletePeriod(editingPeriod.id);
+                      setOpenPeriodEditor(false);
+                    }}
+                    className="w-full rounded-2xl"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer ce créneau
+                  </Button>
                 </div>
               )}
 
@@ -690,7 +626,7 @@ export default function TimetablePage() {
           </Dialog>
 
           <Dialog open={openJson} onOpenChange={setOpenJson}>
-            <DialogContent className="w-[calc(100vw-2rem)] rounded-2xl sm:max-w-3xl">
+            <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl p-4 sm:max-w-3xl sm:p-6">
               <DialogHeader>
                 <DialogTitle>Import / Export (JSON)</DialogTitle>
               </DialogHeader>

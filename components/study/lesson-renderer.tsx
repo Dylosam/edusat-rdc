@@ -1,484 +1,345 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  ChevronDown,
-  CircleHelp,
-  Lightbulb,
-  PencilRuler,
-  RotateCcw,
-  XCircle,
-} from "lucide-react";
-import { Latex } from "@/components/math/latex";
+import { useState } from "react";
+import { BlockMath, InlineMath } from "react-katex";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-type InlineSegment =
-  | { type: "text"; value: string }
-  | { type: "math"; value: string }
-  | { type: "inlineMath"; value: string }
-  | { type: "strong"; value: string };
+// ================= TYPES =================
 
-type TextBlock = {
-  type: "text";
-  value: string;
+type Choice = {
+  text: string;
+  correct: boolean;
 };
 
-type FormulaBlock = {
-  type: "formula";
-  value: string;
+type Step = {
+  text?: string;
+  formula?: string;
+  explanation?: string;
 };
 
-type ExampleBlock = {
-  type: "example";
+type TextMark = {
+  text: string;
+  color?: string;
+};
+
+export type LessonBlock = {
+  type: "text" | "katex" | "example" | "tip" | "exercise";
   title?: string;
-  value: string;
+
+  // text
+  text?: string;
+  segments?: TextMark[];
+
+  // katex
+  formula?: string;
+  explanation?: string;
+
+  // example
+  steps?: Step[];
+
+  // exercise
+  question?: string;
+  choices?: Choice[];
 };
 
-type TipBlock = {
-  type: "tip";
-  value: string;
-};
+// ================= HELPERS =================
 
-type DefinitionBlock = {
-  type: "definition";
-  value: string;
-};
+function splitMath(text: string) {
+  const regex = /(\$\$[\s\S]+?\$\$|\$[^$\n]+\$)/g;
+  const parts: Array<
+    | { type: "text"; value: string }
+    | { type: "inline"; value: string }
+    | { type: "block"; value: string }
+  > = [];
 
-type RichTextBlock = {
-  type: "richText";
-  segments: InlineSegment[];
-};
-
-type SolutionStepsBlock = {
-  type: "solutionSteps";
-  title?: string;
-  steps: string[];
-};
-
-type ExerciseBlock = {
-  type: "exercise";
-  title: string;
-  prompt: string;
-  choices: string[];
-  correctChoiceIndex: number;
-  hint?: string;
-  solutionSteps?: string[];
-};
-
-type LegacyBlock = {
-  type: string;
-  content?: string;
-  math?: string;
-  value?: string;
-  title?: string;
-};
-
-type Block =
-  | TextBlock
-  | FormulaBlock
-  | ExampleBlock
-  | TipBlock
-  | DefinitionBlock
-  | RichTextBlock
-  | SolutionStepsBlock
-  | ExerciseBlock
-  | LegacyBlock;
-
-function parseInlineMath(input: string): InlineSegment[] {
-  if (!input) return [{ type: "text", value: "" }];
-
-  const segments: InlineSegment[] = [];
-  const regex = /\$(.+?)\$/g;
-  let lastIndex = 0;
+  let last = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(input)) !== null) {
-    const start = match.index;
-    const end = regex.lastIndex;
-
-    if (start > lastIndex) {
-      segments.push({
-        type: "text",
-        value: input.slice(lastIndex, start),
-      });
+  while ((match = regex.exec(text))) {
+    if (match.index > last) {
+      parts.push({ type: "text", value: text.slice(last, match.index) });
     }
 
-    segments.push({
-      type: "math",
-      value: match[1],
-    });
+    const token = match[0];
 
-    lastIndex = end;
+    if (token.startsWith("$$")) {
+      parts.push({ type: "block", value: token.slice(2, -2) });
+    } else {
+      parts.push({ type: "inline", value: token.slice(1, -1) });
+    }
+
+    last = regex.lastIndex;
   }
 
-  if (lastIndex < input.length) {
-    segments.push({
-      type: "text",
-      value: input.slice(lastIndex),
-    });
+  if (last < text.length) {
+    parts.push({ type: "text", value: text.slice(last) });
   }
 
-  return segments.length > 0 ? segments : [{ type: "text", value: input }];
+  return parts;
 }
 
-function InlineRichText({ text }: { text: string }) {
-  const segments = useMemo(() => parseInlineMath(text), [text]);
+function sanitizeColor(color?: string) {
+  if (!color) return undefined;
 
-  return (
-    <>
-      {segments.map((segment, index) => {
-        if (segment.type === "math" || segment.type === "inlineMath") {
-          return (
-            <span key={index} className="mx-0.5 inline-block align-middle">
-              <Latex math={segment.value} />
-            </span>
-          );
-        }
+  const trimmed = color.trim();
 
-        if (segment.type === "strong") {
-          return <strong key={index}>{segment.value}</strong>;
-        }
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(trimmed)) {
+    return trimmed;
+  }
 
-        return <Fragment key={index}>{segment.value}</Fragment>;
-      })}
-    </>
-  );
+  const safeNames = new Set([
+    "red",
+    "blue",
+    "green",
+    "orange",
+    "purple",
+    "pink",
+    "yellow",
+    "teal",
+    "indigo",
+    "gray",
+    "black",
+    "white",
+  ]);
+
+  if (safeNames.has(trimmed.toLowerCase())) {
+    return trimmed.toLowerCase();
+  }
+
+  return undefined;
 }
 
-function SegmentedRichText({ segments }: { segments: InlineSegment[] }) {
-  return (
-    <>
-      {segments.map((segment, index) => {
-        if (segment.type === "math" || segment.type === "inlineMath") {
-          return (
-            <span key={index} className="mx-0.5 inline-block align-middle">
-              <Latex math={segment.value} />
-            </span>
-          );
-        }
+function renderTextWithMath(text: string) {
+  if (!text) return null;
 
-        if (segment.type === "strong") {
-          return <strong key={index}>{segment.value}</strong>;
-        }
+  const parts = splitMath(text);
 
-        return <Fragment key={index}>{segment.value}</Fragment>;
-      })}
-    </>
-  );
+  return parts.map((p, i) => {
+    if (p.type === "inline") return <InlineMath key={i} math={p.value} />;
+    if (p.type === "block") {
+      return (
+        <div key={i} className="my-4 overflow-x-auto">
+          <BlockMath math={p.value} />
+        </div>
+      );
+    }
+
+    return <span key={i}>{p.value}</span>;
+  });
 }
 
-function SolutionSteps({
-  title,
-  steps,
+function RichText({
+  text,
+  segments,
 }: {
-  title?: string;
-  steps: string[];
+  text?: string;
+  segments?: TextMark[];
 }) {
-  return (
-    <section className="my-8">
-      <div className="mb-4 flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4 text-primary" />
-        <h3 className="text-base font-semibold text-foreground">
-          {title || "Résolution étape par étape"}
-        </h3>
-      </div>
+  if (Array.isArray(segments) && segments.length > 0) {
+    return (
+      <>
+        {segments.map((segment, i) => {
+          const safeColor = sanitizeColor(segment.color);
+          const content = typeof segment.text === "string" ? segment.text : "";
 
-      <div className="space-y-4">
-        {steps.map((step, index) => (
-          <div key={index} className="border-l-2 border-border pl-4">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Étape {index + 1}
-            </div>
-            <div className="text-[15px] leading-8 text-foreground/90 sm:text-[16px] lg:text-[17px]">
-              <InlineRichText text={step} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+          if (!content) return null;
+
+          return (
+            <span
+              key={i}
+              style={safeColor ? { color: safeColor } : undefined}
+            >
+              {renderTextWithMath(content)}
+            </span>
+          );
+        })}
+      </>
+    );
+  }
+
+  if (typeof text === "string" && text.trim()) {
+    return <>{renderTextWithMath(text)}</>;
+  }
+
+  return null;
 }
 
-function Exercise({
-  title,
-  prompt,
-  choices,
-  correctChoiceIndex,
-  hint,
-  solutionSteps,
-}: ExerciseBlock) {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [result, setResult] = useState<"idle" | "correct" | "incorrect">("idle");
-  const [showHint, setShowHint] = useState(false);
-  const [showSteps, setShowSteps] = useState(false);
+// ================= EXERCISE =================
 
-  function handleCheck() {
-    if (selectedIndex === null) {
-      setResult("incorrect");
-      return;
-    }
+function Exercise({ block }: { block: LessonBlock }) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const [checked, setChecked] = useState(false);
 
-    setResult(selectedIndex === correctChoiceIndex ? "correct" : "incorrect");
-  }
+  const choices = block.choices || [];
 
-  function handleReset() {
-    setSelectedIndex(null);
-    setResult("idle");
-    setShowHint(false);
-    setShowSteps(false);
-  }
+  const isCorrect = () => {
+    if (selected === null) return false;
+    return choices[selected]?.correct === true;
+  };
 
   return (
-    <section className="my-10 border-t border-dashed border-border pt-8">
-      <div className="mb-3 flex items-center gap-2 text-primary">
-        <PencilRuler className="h-4 w-4" />
-        <span className="text-sm font-semibold uppercase tracking-[0.18em]">
-          Exercice interactif
-        </span>
+    <div className="my-10 space-y-4">
+      {block.title && <h3 className="font-semibold text-lg">{block.title}</h3>}
+
+      <div className="text-lg">
+        <RichText text={block.question} />
       </div>
 
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">
-        {title}
-      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {choices.map((c, i) => {
+          const isSel = selected === i;
 
-      <div className="mt-4 text-[15px] leading-8 text-foreground/90 sm:text-[16px] lg:text-[17px]">
-        <InlineRichText text={prompt} />
-      </div>
+          let style =
+            "border-gray-300 bg-white text-gray-900 hover:border-gray-400";
 
-      <div className="mt-6 space-y-3">
-        {choices.map((choice, index) => {
-          const isSelected = selectedIndex === index;
-          const isCorrect = index === correctChoiceIndex;
-
-          const showCorrectState = result !== "idle" && isCorrect;
-          const showIncorrectState =
-            result === "incorrect" && isSelected && !isCorrect;
+          if (checked) {
+            if (c.correct) {
+              style = "border-green-600 bg-green-600 text-white";
+            } else if (isSel) {
+              style = "border-red-600 bg-red-600 text-white";
+            }
+          } else if (isSel) {
+            style = "border-gray-900 bg-gray-100 text-gray-900";
+          }
 
           return (
             <button
-              key={index}
+              key={i}
               type="button"
               onClick={() => {
-                setSelectedIndex(index);
-                if (result !== "idle") setResult("idle");
+                if (checked) return;
+                setSelected(i);
               }}
-              className={[
-                "flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-all",
-                isSelected
-                  ? "border-primary/40 bg-primary/10"
-                  : "border-border bg-background hover:bg-muted/40",
-                showCorrectState ? "border-emerald-500 bg-emerald-500/10" : "",
-                showIncorrectState ? "border-rose-500 bg-rose-500/10" : "",
-              ].join(" ")}
+              className={`w-full h-14 px-4 rounded-lg border text-sm font-medium transition-all duration-150 flex items-center justify-center text-center shadow-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99] ${style}`}
             >
-              <div
-                className={[
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px]",
-                  isSelected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-muted-foreground/40 text-transparent",
-                  showCorrectState
-                    ? "border-emerald-500 bg-emerald-500 text-white"
-                    : "",
-                  showIncorrectState
-                    ? "border-rose-500 bg-rose-500 text-white"
-                    : "",
-                ].join(" ")}
-              >
-                {showCorrectState ? "✓" : showIncorrectState ? "✕" : "•"}
-              </div>
-
-              <div className="text-[15px] leading-7 text-foreground/90 sm:text-[16px]">
-                <InlineRichText text={choice} />
-              </div>
+              <RichText text={c.text} />
             </button>
           );
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={handleCheck}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <CircleHelp className="h-4 w-4" />
+      {!checked ? (
+        <Button onClick={() => setChecked(true)} disabled={selected === null}>
           Vérifier
-        </button>
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          {isCorrect() ? (
+            <div className="text-green-600 flex items-center gap-2">
+              <CheckCircle2 size={18} /> Bonne réponse
+            </div>
+          ) : (
+            <div className="text-red-600 flex items-center gap-2">
+              <XCircle size={18} /> Mauvaise réponse
+            </div>
+          )}
 
-        <button
-          type="button"
-          onClick={handleReset}
-          className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Réinitialiser
-        </button>
-
-        {hint ? (
-          <button
-            type="button"
-            onClick={() => setShowHint((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setChecked(false);
+              setSelected(null);
+            }}
           >
-            <Lightbulb className="h-4 w-4" />
-            {showHint ? "Masquer l’indice" : "Voir l’indice"}
-          </button>
-        ) : null}
+            Recommencer
+          </Button>
 
-        {solutionSteps?.length ? (
-          <button
-            type="button"
-            onClick={() => setShowSteps((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${
-                showSteps ? "rotate-180" : ""
-              }`}
-            />
-            {showSteps ? "Masquer les étapes" : "Voir les étapes"}
-          </button>
-        ) : null}
-      </div>
-
-      {result === "correct" ? (
-        <div className="mt-5 border-l-2 border-emerald-500 pl-4 text-[15px] leading-8 text-emerald-500 sm:text-[16px]">
-          <div className="mb-1 flex items-center gap-2 font-semibold">
-            <CheckCircle2 className="h-4 w-4" />
-            Bonne réponse
-          </div>
-          <p>Tu as choisi la bonne réponse.</p>
+          {block.explanation && (
+            <div className="text-sm text-gray-600">
+              <RichText text={block.explanation} />
+            </div>
+          )}
         </div>
-      ) : null}
-
-      {result === "incorrect" ? (
-        <div className="mt-5 border-l-2 border-rose-500 pl-4 text-[15px] leading-8 text-rose-500 sm:text-[16px]">
-          <div className="mb-1 flex items-center gap-2 font-semibold">
-            <XCircle className="h-4 w-4" />
-            Réponse à revoir
-          </div>
-          <p>Relis bien l’énoncé, demande un indice ou affiche les étapes.</p>
-        </div>
-      ) : null}
-
-      {showHint && hint ? (
-        <div className="mt-5 border-l-2 border-amber-400 pl-4 text-[15px] leading-8 text-foreground/85 sm:text-[16px]">
-          <div className="mb-2 text-sm font-semibold text-amber-500">
-            Indice
-          </div>
-          <InlineRichText text={hint} />
-        </div>
-      ) : null}
-
-      {showSteps && solutionSteps?.length ? (
-        <div className="mt-6">
-          <SolutionSteps title="Correction détaillée" steps={solutionSteps} />
-        </div>
-      ) : null}
-    </section>
+      )}
+    </div>
   );
 }
 
-export default function LessonRenderer({ blocks }: { blocks: Block[] }) {
+// ================= MAIN =================
+
+export default function LessonRenderer({ blocks }: { blocks: LessonBlock[] }) {
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
-      <div className="space-y-5 text-[15px] leading-8 sm:space-y-6 sm:text-[16px] lg:space-y-7 lg:text-[17px]">
-        {blocks.map((block, i) => {
-          if (block.type === "richText" && "segments" in block) {
+    <div>
+      {blocks.map((block, i) => {
+        switch (block.type) {
+          case "text":
             return (
-              <p key={i} className="break-words text-foreground/90">
-                <SegmentedRichText segments={block.segments} />
-              </p>
-            );
-          }
+              <div key={i} className="my-8">
+                {block.title && (
+                  <h3 className="font-semibold text-lg mb-3 text-foreground">
+                    {block.title}
+                  </h3>
+                )}
 
-          if (block.type === "text") {
-            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
-            return (
-              <p key={i} className="break-words text-foreground/90">
-                <InlineRichText text={text} />
-              </p>
-            );
-          }
-
-          if (block.type === "formula") {
-            const math = ("value" in block && block.value) || ("math" in block && block.math) || "";
-            return (
-              <div key={i} className="my-5 overflow-x-auto py-2">
-                <div className="flex min-w-max justify-center">
-                  <Latex math={math} />
+                <div className="leading-relaxed text-[15.5px] md:text-base">
+                  <RichText text={block.text} segments={block.segments} />
                 </div>
               </div>
             );
-          }
 
-          if (block.type === "example") {
-            const title = ("title" in block && block.title) || "Exemple";
-            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
+          case "katex":
+            return (
+              <div key={i} className="my-6">
+                {block.title && (
+                  <h3 className="font-semibold text-lg mb-2">{block.title}</h3>
+                )}
+                <BlockMath math={block.formula || ""} />
+                {block.explanation && (
+                  <div className="text-sm text-gray-600 mt-2">
+                    <RichText text={block.explanation} />
+                  </div>
+                )}
+              </div>
+            );
 
+          case "example":
+            return (
+              <div key={i} className="my-8">
+                {block.title && (
+                  <h3 className="font-semibold text-lg mb-2">{block.title}</h3>
+                )}
+
+                {block.text && (
+                  <p className="mb-3">
+                    <RichText text={block.text} />
+                  </p>
+                )}
+
+                {block.steps?.map((step, idx) => (
+                  <div key={idx} className="mb-2">
+                    {step.text && <RichText text={step.text} />}
+                    {step.formula && <BlockMath math={step.formula} />}
+                    {step.explanation && (
+                      <div className="text-sm text-gray-600">
+                        <RichText text={step.explanation} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+
+          case "tip":
             return (
               <div
                 key={i}
-                className="border-l-2 border-border pl-4 text-foreground/90"
+                className="my-6 p-4 rounded-lg bg-yellow-50 border border-yellow-200"
               >
-                <div className="mb-2 font-semibold text-foreground">{title}</div>
-                <div className="break-words">
-                  <InlineRichText text={text} />
-                </div>
+                {block.title && (
+                  <div className="font-semibold mb-1 text-lg">{block.title}</div>
+                )}
+                <RichText text={block.text} />
               </div>
             );
-          }
 
-          if (block.type === "tip") {
-            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
-            return (
-              <div
-                key={i}
-                className="border-l-2 border-amber-400/70 pl-4 text-foreground/85"
-              >
-                <div className="mb-2 text-sm font-semibold text-amber-500">
-                  Astuce
-                </div>
-                <div className="break-words">
-                  <InlineRichText text={text} />
-                </div>
-              </div>
-            );
-          }
+          case "exercise":
+            return <Exercise key={i} block={block} />;
 
-          if (block.type === "definition") {
-            const text = ("value" in block && block.value) || ("content" in block && block.content) || "";
-            return (
-              <div key={i} className="break-words font-semibold text-foreground">
-                <InlineRichText text={text} />
-              </div>
-            );
-          }
-
-          if (block.type === "solutionSteps" && "steps" in block) {
-            return (
-              <SolutionSteps
-                key={i}
-                title={block.title}
-                steps={block.steps}
-              />
-            );
-          }
-
-          if (
-            block.type === "exercise" &&
-            "title" in block &&
-            "prompt" in block &&
-            "choices" in block &&
-            "correctChoiceIndex" in block
-          ) {
-            return <Exercise key={i} {...block} />;
-          }
-
-          return null;
-        })}
-      </div>
+          default:
+            return null;
+        }
+      })}
     </div>
   );
 }

@@ -1,6 +1,6 @@
-// app/chapters/[id]/page.tsx
-
 import StudyChapterPage from "@/components/study/study-chapter-page";
+
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: {
@@ -9,5 +9,5 @@ type PageProps = {
 };
 
 export default function Page({ params }: PageProps) {
-  return <StudyChapterPage key={params.id} />;
+  return <StudyChapterPage chapterId={params.id} key={params.id} />;
 }

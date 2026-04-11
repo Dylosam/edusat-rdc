@@ -21,6 +21,27 @@ import { mockGetCurrentUser } from '@/lib/mock-api/auth';
 import type { User } from '@/lib/types';
 import { toast } from 'sonner';
 
+function normalizeUser(rawUser: any): User {
+  return {
+    id: String(rawUser?.id ?? ''),
+    name: String(
+      rawUser?.name ??
+        rawUser?.fullName ??
+        [rawUser?.firstName, rawUser?.lastName].filter(Boolean).join(' ') ??
+        'Utilisateur'
+    ),
+    email: rawUser?.email ? String(rawUser.email) : '',
+    phone: rawUser?.phone ? String(rawUser.phone) : '',
+    level: String(rawUser?.level ?? rawUser?.classLevel ?? 'Non défini'),
+    subscription:
+      rawUser?.subscription === 'premium' || rawUser?.subscription === 'free'
+        ? rawUser.subscription
+        : 'free',
+    joinDate: String(rawUser?.joinDate ?? rawUser?.createdAt ?? new Date().toISOString()),
+    totalTimeStudied: Number(rawUser?.totalTimeStudied ?? 0),
+  };
+}
+
 export default function SubscriptionPage() {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
@@ -42,7 +63,8 @@ export default function SubscriptionPage() {
           return;
         }
 
-        setUser(currentUser);
+        const normalizedUser = normalizeUser(currentUser);
+        setUser(normalizedUser);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -249,7 +271,7 @@ export default function SubscriptionPage() {
             </h2>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {benefits.map((benefit, index) => (
+              {benefits.map((benefit) => (
                 <motion.div
                   key={benefit.title}
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
