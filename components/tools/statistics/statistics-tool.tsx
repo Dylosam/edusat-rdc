@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, Sigma, Sparkles, Table2 } from 'lucide-react';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { StatisticsChart } from '@/components/tools/statistics/statistics-chart';
 import { StatisticsEmptyState } from '@/components/tools/statistics/statistics-empty-state';
 import { StatisticsGrid } from '@/components/tools/statistics/statistics-grid';
@@ -194,93 +194,53 @@ export function StatisticsTool() {
     (item) => item.key === seriesType
   );
 
+  const chartLabel =
+    chartType === 'none'
+      ? 'Aucun'
+      : chartType === 'bar'
+      ? 'Barres'
+      : chartType === 'line'
+      ? 'Courbe'
+      : chartType === 'pie'
+      ? 'Camembert'
+      : chartType === 'histogram'
+      ? 'Histogramme'
+      : 'Nuage';
+
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className="mb-1 sm:mb-2">
-        <h1 className="mb-2 font-serif text-3xl font-bold leading-tight sm:text-4xl">
+    <div className="space-y-5 sm:space-y-7">
+      <div className="space-y-3">
+        <h1 className="font-serif text-3xl font-bold leading-tight sm:text-4xl">
           Tableau statistique intelligent
         </h1>
+
         <p className="max-w-4xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
           Choisissez le type de série et les calculs souhaités. EduStat adapte
           automatiquement le tableau, ajoute les colonnes nécessaires comme
           ni·Xi, NCC, Xi², ni·Xi², XY, puis génère les résultats et les graphiques.
         </p>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-        <Card className="rounded-2xl">
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
-            <CardTitle className="pr-2 text-sm font-medium leading-snug">
-              Type de série
-            </CardTitle>
-            <Sigma className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
-            <div className="text-base font-bold sm:text-xl">
-              {currentSeries?.label ?? '—'}
-            </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {currentSeries?.description ?? 'Tableau adaptatif'}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary" className="gap-1">
+            <Sigma className="h-3.5 w-3.5" />
+            {currentSeries?.label ?? '—'}
+          </Badge>
 
-        <Card className="rounded-2xl">
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
-            <CardTitle className="pr-2 text-sm font-medium leading-snug">
-              Colonnes actives
-            </CardTitle>
-            <Table2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
-            <div className="text-2xl font-bold">{visibleColumns.length}</div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Colonnes affichées automatiquement
-            </p>
-          </CardContent>
-        </Card>
+          <Badge variant="outline" className="gap-1">
+            <Table2 className="h-3.5 w-3.5" />
+            {visibleColumns.length} colonnes
+          </Badge>
 
-        <Card className="rounded-2xl">
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
-            <CardTitle className="pr-2 text-sm font-medium leading-snug">
-              Calculs demandés
-            </CardTitle>
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
-            <div className="text-2xl font-bold">{selectedGoals.length}</div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Objectifs de calcul sélectionnés
-            </p>
-          </CardContent>
-        </Card>
+          <Badge variant="outline" className="gap-1">
+            <Sparkles className="h-3.5 w-3.5" />
+            {selectedGoals.length} calculs
+          </Badge>
 
-        <Card className="rounded-2xl">
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2 sm:p-5 sm:pb-3">
-            <CardTitle className="pr-2 text-sm font-medium leading-snug">
-              Graphique
-            </CardTitle>
-            <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
-            <div className="text-base font-bold sm:text-xl">
-              {chartType === 'none'
-                ? 'Aucun'
-                : chartType === 'bar'
-                ? 'Barres'
-                : chartType === 'line'
-                ? 'Courbe'
-                : chartType === 'pie'
-                ? 'Camembert'
-                : chartType === 'histogram'
-                ? 'Histogramme'
-                : 'Nuage'}
-            </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Représentation visuelle des données
-            </p>
-          </CardContent>
-        </Card>
+          <Badge variant="outline" className="gap-1">
+            <BarChart3 className="h-3.5 w-3.5" />
+            {chartLabel}
+          </Badge>
+        </div>
       </div>
 
       <motion.div
@@ -302,53 +262,91 @@ export function StatisticsTool() {
         />
       </motion.div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <motion.div
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
+      <div className="space-y-6">
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.08 }}
-          className="space-y-6 min-w-0"
+          className="min-w-0"
         >
-          <StatisticsGrid
-            seriesType={seriesType}
-            selectedGoals={selectedGoals}
-            rows={rows}
-            onChangeCell={handleChangeCell}
-            onAddRow={handleAddRow}
-            onRemoveRow={handleRemoveRow}
-          />
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold sm:text-xl">Tableau</h2>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Saisie et calculs adaptatifs, pensés pour mobile et desktop.
+              </p>
+            </div>
+          </div>
 
-          <StatisticsChart
-            rows={rows}
-            chartType={chartType}
-            seriesType={seriesType}
-          />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, x: 12 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.35, delay: 0.1 }}
-          className="space-y-6 min-w-0"
-        >
-          {hasAtLeastOneFilledValue ? (
-            <>
-              <StatisticsResults
-                rows={statisticRows}
-                dynamicRows={rows}
+          <div className="min-w-0 overflow-x-auto rounded-2xl border bg-background">
+            <div className="min-w-[720px] sm:min-w-0">
+              <StatisticsGrid
+                seriesType={seriesType}
                 selectedGoals={selectedGoals}
+                rows={rows}
+                onChangeCell={handleChangeCell}
+                onAddRow={handleAddRow}
+                onRemoveRow={handleRemoveRow}
+              />
+            </div>
+          </div>
+        </motion.section>
+
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_1fr]">
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1 }}
+            className="min-w-0"
+          >
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold sm:text-xl">Graphique</h2>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Représentation visuelle des données saisies.
+              </p>
+            </div>
+
+            <div className="min-w-0 overflow-hidden rounded-2xl border bg-background">
+              <StatisticsChart
+                rows={rows}
+                chartType={chartType}
                 seriesType={seriesType}
               />
-              <StatisticsSummary
-                rows={statisticRows}
-                dynamicRows={rows}
-                seriesType={seriesType}
-              />
-            </>
-          ) : (
-            <StatisticsEmptyState onReset={handleResetRows} />
-          )}
-        </motion.div>
+            </div>
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.12 }}
+            className="min-w-0 space-y-6"
+          >
+            {hasAtLeastOneFilledValue ? (
+              <>
+                <div className="overflow-hidden rounded-2xl border bg-background">
+                  <StatisticsResults
+                    rows={statisticRows}
+                    dynamicRows={rows}
+                    selectedGoals={selectedGoals}
+                    seriesType={seriesType}
+                  />
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border bg-background">
+                  <StatisticsSummary
+                    rows={statisticRows}
+                    dynamicRows={rows}
+                    seriesType={seriesType}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border bg-background">
+                <StatisticsEmptyState onReset={handleResetRows} />
+              </div>
+            )}
+          </motion.section>
+        </div>
       </div>
     </div>
   );

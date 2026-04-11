@@ -2,12 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   User as UserIcon,
@@ -19,7 +16,6 @@ import {
   Trophy,
   BookOpen,
   Target,
-  Crown,
 } from 'lucide-react';
 import { mockGetCurrentUser } from '@/lib/mock-api/auth';
 import { getSubjects } from '@/lib/mock-api/data';
@@ -69,10 +65,6 @@ function normalizeUser(rawUser: any): User {
     email: rawUser?.email ? String(rawUser.email) : '',
     phone: rawUser?.phone ? String(rawUser.phone) : '',
     level: String(rawUser?.level ?? rawUser?.classLevel ?? 'Non défini'),
-    subscription:
-      rawUser?.subscription === 'premium' || rawUser?.subscription === 'free'
-        ? rawUser.subscription
-        : 'free',
     joinDate: String(rawUser?.joinDate ?? rawUser?.createdAt ?? new Date().toISOString()),
     totalTimeStudied: Number(rawUser?.totalTimeStudied ?? 0),
   };
@@ -160,15 +152,8 @@ export default function ProfilePage() {
     [progressData]
   );
 
-  const hoursStudied = useMemo(
-    () => Math.floor((user?.totalTimeStudied || 0) / 60),
-    [user?.totalTimeStudied]
-  );
-
-  const minutesStudied = useMemo(
-    () => (user?.totalTimeStudied || 0) % 60,
-    [user?.totalTimeStudied]
-  );
+  const hoursStudied = Math.floor((user?.totalTimeStudied || 0) / 60);
+  const minutesStudied = (user?.totalTimeStudied || 0) % 60;
 
   if (isLoading) {
     return (
@@ -181,9 +166,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -197,13 +180,10 @@ export default function ProfilePage() {
         >
           <div className="mb-8">
             <h1 className="mb-2 text-3xl font-bold font-serif sm:text-4xl">Profil</h1>
-            <p className="text-muted-foreground">
-              Gérez vos informations et suivez vos statistiques
-            </p>
           </div>
 
           <div className="mb-8 grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-1">
+            <Card>
               <CardHeader>
                 <CardTitle>Informations personnelles</CardTitle>
               </CardHeader>
@@ -215,17 +195,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-semibold">{user.name || 'Utilisateur'}</h3>
-                    <Badge variant={user.subscription === 'premium' ? 'default' : 'secondary'}>
-                      {user.subscription === 'premium' ? (
-                        <>
-                          <Crown className="mr-1 h-3 w-3" />
-                          Premium
-                        </>
-                      ) : (
-                        'Gratuit'
-                      )}
-                    </Badge>
+                    <h3 className="text-lg font-semibold">{user.name}</h3>
                   </div>
                 </div>
 
@@ -244,84 +214,25 @@ export default function ProfilePage() {
 
                   <div className="flex items-center space-x-3 text-sm">
                     <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                    <span>Niveau: {user.level || 'Non défini'}</span>
+                    <span>{user.level}</span>
                   </div>
 
                   <div className="flex items-center space-x-3 text-sm">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span>
-                      Membre depuis{' '}
-                      {user.joinDate
-                        ? new Date(user.joinDate).toLocaleDateString('fr-FR')
-                        : 'Date inconnue'}
+                      {new Date(user.joinDate).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
                 </div>
-
-                {user.subscription === 'free' && (
-                  <div className="border-t pt-4">
-                    <Link prefetch href="/subscription">
-                      <Button className="w-full">
-                        <Crown className="mr-2 h-4 w-4" />
-                        Passer à Premium
-                      </Button>
-                    </Link>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
             <div className="space-y-6 lg:col-span-2">
               <div className="grid gap-4 sm:grid-cols-2">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Temps étudié</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {hoursStudied}h {minutesStudied}m
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Temps total</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Chapitres terminés</CardTitle>
-                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{totalChaptersCompleted}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Tous sujets confondus
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Quiz réussis</CardTitle>
-                    <Trophy className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{totalQuizzesPassed}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">Total de quiz</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Score moyen</CardTitle>
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{averageScore.toFixed(0)}%</div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Tous quiz confondus
-                    </p>
-                  </CardContent>
-                </Card>
+                <StatCard title="Temps étudié" value={`${hoursStudied}h ${minutesStudied}m`} icon={<Clock />} />
+                <StatCard title="Chapitres terminés" value={totalChaptersCompleted} icon={<BookOpen />} />
+                <StatCard title="Quiz réussis" value={totalQuizzesPassed} icon={<Trophy />} />
+                <StatCard title="Score moyen" value={`${averageScore.toFixed(0)}%`} icon={<Target />} />
               </div>
 
               <Card>
@@ -330,28 +241,15 @@ export default function ProfilePage() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {subjects.slice(0, 6).map((subject) => {
-                    const progress = progressData.find((p) => p.subjectId === subject.id);
-
-                    return (
-                      <div key={subject.id}>
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium">{subject.name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {progress?.chaptersCompleted || 0}/
-                            {progress?.totalChapters || 0} chapitres
-                          </span>
-                        </div>
-                        <Progress value={subject.progress} />
+                  {subjects.map((subject) => (
+                    <div key={subject.id}>
+                      <div className="mb-2 flex justify-between text-sm">
+                        <span>{subject.name}</span>
+                        <span>{subject.progress}%</span>
                       </div>
-                    );
-                  })}
-
-                  {subjects.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Aucune matière disponible pour le moment.
-                    </p>
-                  )}
+                      <Progress value={subject.progress} />
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </div>
@@ -359,5 +257,19 @@ export default function ProfilePage() {
         </motion.div>
       </main>
     </div>
+  );
+}
+
+function StatCard({ title, value, icon }: any) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row justify-between pb-2">
+        <CardTitle className="text-sm">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+      </CardContent>
+    </Card>
   );
 }

@@ -9,7 +9,7 @@ export default function TableauStatistiquePage() {
     <div className="min-h-screen bg-background">
       <DashboardNav />
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}

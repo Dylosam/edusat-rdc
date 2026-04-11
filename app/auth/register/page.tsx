@@ -1,10 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { GraduationCap, Loader2 } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  GraduationCap,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { supabaseBrowser } from '@/lib/supabase/client';
@@ -36,9 +41,32 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function isProfilesRlsError(message: string): boolean {
+  const text = message.toLowerCase();
+  return (
+    text.includes('row-level security') ||
+    text.includes('violates row-level security policy') ||
+    text.includes('profiles')
+  );
+}
+
+function isAlreadyRegisteredMessage(message: string): boolean {
+  const text = message.toLowerCase();
+  return (
+    text.includes('already registered') ||
+    text.includes('already been registered') ||
+    text.includes('user already registered') ||
+    text.includes('already exists') ||
+    text.includes('email rate limit exceeded') // garde-fou éventuel
+  );
+}
+
 export default function RegisterPage() {
   const router = useRouter();
+
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -47,8 +75,29 @@ export default function RegisterPage() {
     confirmPassword: '',
   });
 
+  const passwordStrengthLabel = useMemo(() => {
+    const pwd = formData.password;
+
+    if (!pwd) return '';
+    if (pwd.length < 6) return 'Faible';
+    if (pwd.length < 10) return 'Moyen';
+    return 'Bon';
+  }, [formData.password]);
+
+  const updateField =
+    (field: keyof typeof formData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isLoading) return;
 
     const fullName = formData.fullName.trim();
     const email = formData.email.trim().toLowerCase();
@@ -93,41 +142,82 @@ export default function RegisterPage() {
         },
       });
 
-      if (error) throw error;
-      if (!data.user) throw new Error('Inscription impossible');
+      if (error) {
+        const message = getErrorMessage(error, 'Inscription impossible');
 
-      const { error: profileError } = await supabaseBrowser.from('profiles').upsert({
-        id: data.user.id,
-        full_name: fullName,
-        email,
-        role: 'student',
-        status: 'active',
-        deleted_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        last_seen_at: new Date().toISOString(),
-      });
+        if (isAlreadyRegisteredMessage(message)) {
+          toast.info('Un compte existe déjà avec cet email. Connecte-toi pour continuer.');
+          router.push('/auth/login');
+          return;
+        }
 
-      if (profileError) throw profileError;
+        throw error;
+      }
+
+      if (!data.user) {
+        throw new Error('Inscription impossible');
+      }
+
+      const { error: profileError } = await supabaseBrowser
+        .from('profiles')
+        .upsert(
+          {
+            id: data.user.id,
+            full_name: fullName,
+            email,
+            role: 'student',
+            status: 'active',
+            deleted_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            last_seen_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+
+      if (profileError) {
+        const profileMessage = getErrorMessage(
+          profileError,
+          'Profil non créé'
+        );
+
+        if (isProfilesRlsError(profileMessage)) {
+          toast.success(
+            'Compte créé. Connecte-toi maintenant pour accéder à la plateforme.'
+          );
+          router.push('/auth/login');
+          return;
+        }
+
+        throw profileError;
+      }
 
       toast.success('Compte créé avec succès');
       router.push('/auth/login');
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Inscription impossible'));
+      const message = getErrorMessage(error, 'Inscription impossible');
+
+      if (isAlreadyRegisteredMessage(message)) {
+        toast.info('Ce compte existe déjà. Connecte-toi pour continuer.');
+        router.push('/auth/login');
+        return;
+      }
+
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
       <div className="w-full max-w-md">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
         >
-          <Link href="/" className="mb-8 flex items-center justify-center space-x-2">
+          <Link href="/" className="mb-8 flex items-center justify-center gap-2">
             <GraduationCap className="h-10 w-10 text-primary" />
             <span className="font-serif text-2xl font-bold">EduStat-RDC</span>
           </Link>
@@ -151,14 +241,10 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="Jean Dupont"
                     value={formData.fullName}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        fullName: e.target.value,
-                      }))
-                    }
+                    onChange={updateField('fullName')}
                     required
                     disabled={isLoading}
+                    autoComplete="name"
                   />
                 </div>
 
@@ -169,51 +255,89 @@ export default function RegisterPage() {
                     type="email"
                     placeholder="jean@example.com"
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        email: e.target.value,
-                      }))
-                    }
+                    onChange={updateField('email')}
                     required
                     disabled={isLoading}
+                    autoComplete="email"
+                    inputMode="email"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Mot de passe</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        password: e.target.value,
-                      }))
-                    }
-                    required
-                    disabled={isLoading}
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Mot de passe</Label>
+                    {passwordStrengthLabel ? (
+                      <span className="text-xs text-muted-foreground">
+                        Niveau : {passwordStrengthLabel}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={updateField('password')}
+                      required
+                      disabled={isLoading}
+                      autoComplete="new-password"
+                      className="pr-11"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      disabled={isLoading}
+                      className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed"
+                      aria-label={
+                        showPassword
+                          ? 'Masquer le mot de passe'
+                          : 'Afficher le mot de passe'
+                      }
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={formData.confirmPassword}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        confirmPassword: e.target.value,
-                      }))
-                    }
-                    required
-                    disabled={isLoading}
-                  />
+
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={updateField('confirmPassword')}
+                      required
+                      disabled={isLoading}
+                      autoComplete="new-password"
+                      className="pr-11"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      disabled={isLoading}
+                      className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed"
+                      aria-label={
+                        showConfirmPassword
+                          ? 'Masquer la confirmation du mot de passe'
+                          : 'Afficher la confirmation du mot de passe'
+                      }
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>

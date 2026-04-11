@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/card';
 
 import { supabaseBrowser } from '@/lib/supabase/client';
-import AuthSessionReset from '@/components/system/AuthSessionReset';
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) {
@@ -145,6 +144,7 @@ export default function LoginPage() {
 
       toast.success('Connexion réussie');
       router.replace('/dashboard');
+      router.refresh();
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Identifiants incorrects'));
     } finally {
@@ -153,97 +153,93 @@ export default function LoginPage() {
   };
 
   return (
-    <>
-      <AuthSessionReset />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
+      <div className="w-full max-w-md">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Link href="/" className="mb-8 flex items-center justify-center space-x-2">
+            <GraduationCap className="h-10 w-10 text-primary" />
+            <span className="font-serif text-2xl font-bold">EduStat-RDC</span>
+          </Link>
 
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
-        <div className="w-full max-w-md">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Link href="/" className="mb-8 flex items-center justify-center space-x-2">
-              <GraduationCap className="h-10 w-10 text-primary" />
-              <span className="font-serif text-2xl font-bold">EduStat-RDC</span>
-            </Link>
+          <Card className="border-border/50 shadow-xl">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-center text-2xl font-bold">
+                Se connecter
+              </CardTitle>
+              <CardDescription className="text-center">
+                Accédez à votre espace EduStat-RDC
+              </CardDescription>
+            </CardHeader>
 
-            <Card className="border-border/50 shadow-xl">
-              <CardHeader className="space-y-1">
-                <CardTitle className="text-center text-2xl font-bold">
-                  Se connecter
-                </CardTitle>
-                <CardDescription className="text-center">
-                  Accédez à votre espace EduStat-RDC
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="jean@example.com"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Mot de passe</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          password: e.target.value,
-                        }))
-                      }
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Connexion en cours...
-                      </>
-                    ) : (
-                      'Se connecter'
-                    )}
-                  </Button>
-                </form>
-
-                <div className="mt-6 text-center text-sm">
-                  <span className="text-muted-foreground">
-                    Vous n’avez pas encore de compte ?{' '}
-                  </span>
-                  <Link
-                    href="/auth/register"
-                    className="font-medium text-primary hover:underline"
-                  >
-                    Créer un compte
-                  </Link>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="jean@example.com"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                    required
+                    disabled={isLoading}
+                  />
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connexion en cours...
+                    </>
+                  ) : (
+                    'Se connecter'
+                  )}
+                </Button>
+              </form>
+
+              <div className="mt-6 text-center text-sm">
+                <span className="text-muted-foreground">
+                  Vous n’avez pas encore de compte ?{' '}
+                </span>
+                <Link
+                  href="/auth/register"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Créer un compte
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </>
+    </div>
   );
 }

@@ -141,9 +141,9 @@ export function PeriodicTool() {
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
-      className="space-y-6 sm:space-y-8"
+      className="space-y-4 sm:space-y-8"
     >
-      <section className="space-y-2">
+      <section className="order-2 space-y-2 lg:order-1">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Atom className="h-4 w-4" />
           <span>Outils interactifs</span>
@@ -159,8 +159,8 @@ export function PeriodicTool() {
         </p>
       </section>
 
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:gap-6">
-        <Card className="border-primary/10 rounded-2xl">
+      <div className="order-3 grid gap-4 sm:gap-5 lg:order-2 lg:grid-cols-[1.2fr_0.8fr] lg:gap-6">
+        <Card className="rounded-2xl border-primary/10">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Search className="h-5 w-5 text-primary" />
@@ -220,7 +220,7 @@ export function PeriodicTool() {
           </CardContent>
         </Card>
 
-        <Card className="border-primary/10 rounded-2xl">
+        <Card className="rounded-2xl border-primary/10">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Sparkles className="h-5 w-5 text-primary" />
@@ -248,7 +248,7 @@ export function PeriodicTool() {
         </Card>
       </div>
 
-      <Card className="overflow-hidden rounded-2xl border-primary/10">
+      <Card className="order-1 overflow-hidden rounded-2xl border-primary/10 lg:order-3">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Layers className="h-5 w-5 text-primary" />

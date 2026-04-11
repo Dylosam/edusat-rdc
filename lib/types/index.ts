@@ -4,7 +4,6 @@ export interface User {
   email?: string;
   phone: string;
   level: string;
-  subscription: 'free' | 'premium';
   joinDate: string;
   totalTimeStudied: number;
 }
