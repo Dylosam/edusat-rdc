@@ -29,7 +29,7 @@ import {
   getChapterById,
   getLessonsByChapter,
   getQuizzesByChapterId,
-} from "@/lib/supabase/queries";
+} from "@/lib/supabase/queries.client";
 
 type StudyChapterPageProps = {
   chapterId: string;
@@ -96,43 +96,46 @@ type RendererTextSegment = {
   color?: string;
 };
 
+type RendererRichText = string | RendererTextSegment[];
+
 type RendererLessonBlock =
   | {
       type: "text";
-      title?: string;
-      text?: string;
+      title?: RendererRichText;
+      text?: RendererRichText;
       segments?: RendererTextSegment[];
     }
   | {
       type: "katex";
-      title?: string;
+      title?: RendererRichText;
       formula: string;
-      explanation?: string;
+      explanation?: RendererRichText;
     }
   | {
       type: "example";
-      title?: string;
-      text?: string;
+      title?: RendererRichText;
+      text?: RendererRichText;
       steps?: {
-        text?: string;
+        text?: RendererRichText;
         formula?: string;
-        explanation?: string;
+        explanation?: RendererRichText;
       }[];
     }
   | {
       type: "tip";
-      title?: string;
-      text: string;
+      title?: RendererRichText;
+      text?: RendererRichText;
+      segments?: RendererTextSegment[];
     }
   | {
       type: "exercise";
-      title?: string;
-      question: string;
+      title?: RendererRichText;
+      question: RendererRichText;
       choices: {
-        text: string;
+        text: RendererRichText;
         correct: boolean;
       }[];
-      explanation?: string;
+      explanation?: RendererRichText;
     };
 
 type RawLesson = {
@@ -203,7 +206,7 @@ function normalizeSegments(value: unknown): RendererTextSegment[] {
   const result: RendererTextSegment[] = [];
 
   for (const item of value) {
-    if (!item || typeof item !== "object") continue;
+    if (!isObject(item)) continue;
 
     const raw = item as RawTextSegment;
     const text = asString(raw.text).trim();
@@ -211,30 +214,43 @@ function normalizeSegments(value: unknown): RendererTextSegment[] {
 
     if (!text) continue;
 
-    result.push({
-      text,
-      color,
-    });
+    result.push({ text, color });
   }
 
   return result;
 }
 
+function normalizeRichText(value: unknown): RendererRichText | undefined {
+  if (typeof value === "string") {
+    const text = value.trim();
+    return text ? value : undefined;
+  }
+
+  const segments = normalizeSegments(value);
+  if (segments.length > 0) return segments;
+
+  return undefined;
+}
+
 function normalizeSteps(
   value: unknown
-): { text?: string; formula?: string; explanation?: string }[] {
+): { text?: RendererRichText; formula?: string; explanation?: RendererRichText }[] {
   if (!Array.isArray(value)) return [];
 
-  const result: { text?: string; formula?: string; explanation?: string }[] = [];
+  const result: {
+    text?: RendererRichText;
+    formula?: string;
+    explanation?: RendererRichText;
+  }[] = [];
 
   for (const step of value) {
-    if (!step || typeof step !== "object") continue;
+    if (!isObject(step)) continue;
 
     const raw = step as RawStep;
 
-    const text = asString(raw.text) || undefined;
-    const formula = asString(raw.formula) || undefined;
-    const explanation = asString(raw.explanation) || undefined;
+    const text = normalizeRichText(raw.text);
+    const formula = asString(raw.formula).trim() || undefined;
+    const explanation = normalizeRichText(raw.explanation);
 
     if (!text && !formula && !explanation) continue;
 
@@ -250,46 +266,58 @@ function normalizeSteps(
 
 function normalizeChoicesFromObjects(
   value: unknown
-): { text: string; correct: boolean }[] {
+): { text: RendererRichText; correct: boolean }[] {
   if (!Array.isArray(value)) return [];
 
-  return value
-    .map((choice) => {
-      if (!choice || typeof choice !== "object") return null;
+  const mapped: Array<{ text: RendererRichText; correct: boolean } | null> =
+    value.map((choice) => {
+      if (!isObject(choice)) return null;
 
       const raw = choice as RawChoice;
-      const text = asString(raw.text).trim();
+      const text = normalizeRichText(raw.text);
       const correct = raw.correct === true;
 
       if (!text) return null;
 
       return { text, correct };
-    })
-    .filter(
-      (choice): choice is { text: string; correct: boolean } => choice !== null
-    );
+    });
+
+  return mapped.filter(
+    (
+      choice
+    ): choice is {
+      text: RendererRichText;
+      correct: boolean;
+    } => choice !== null
+  );
 }
 
 function normalizeChoicesFromLegacy(
   answersValue: unknown,
   correctIndexValue: unknown
-): { text: string; correct: boolean }[] {
+): { text: RendererRichText; correct: boolean }[] {
   if (!Array.isArray(answersValue)) return [];
 
   const correctIndex = asNumberOrNull(correctIndexValue);
 
-  return answersValue
-    .map((answer, index) => {
+  const mapped: Array<{ text: RendererRichText; correct: boolean } | null> =
+    answersValue.map((answer, index) => {
       if (typeof answer !== "string" || !answer.trim()) return null;
 
       return {
         text: answer,
         correct: index === correctIndex,
       };
-    })
-    .filter(
-      (choice): choice is { text: string; correct: boolean } => choice !== null
-    );
+    });
+
+  return mapped.filter(
+    (
+      choice
+    ): choice is {
+      text: RendererRichText;
+      correct: boolean;
+    } => choice !== null
+  );
 }
 
 function transformToRendererBlocks(
@@ -306,20 +334,21 @@ function transformToRendererBlocks(
   for (const block of sortedBlocks) {
     const payload: RawPayload = isObject(block.payload) ? block.payload : {};
     const type = asString(block.type).toLowerCase();
+    const title = normalizeRichText(payload.title);
 
     if (type === "text") {
-      const text =
-        asString(payload.text) ||
-        asString(payload.content) ||
-        asString(payload.value);
+      const richText =
+        normalizeRichText(payload.text) ??
+        normalizeRichText(payload.content) ??
+        normalizeRichText(payload.value);
 
       const segments = normalizeSegments(payload.segments);
 
-      if (text.trim() || segments.length > 0) {
+      if (richText || segments.length > 0) {
         result.push({
           type: "text",
-          title: asString(payload.title) || undefined,
-          text: text || undefined,
+          title,
+          text: richText,
           segments: segments.length > 0 ? segments : undefined,
         });
       }
@@ -327,27 +356,28 @@ function transformToRendererBlocks(
     }
 
     if (type === "katex") {
-      const formula = asString(payload.formula);
+      const formula = asString(payload.formula).trim();
+      const explanation = normalizeRichText(payload.explanation);
 
-      if (formula.trim()) {
+      if (formula) {
         result.push({
           type: "katex",
-          title: asString(payload.title) || undefined,
+          title,
           formula,
-          explanation: asString(payload.explanation) || undefined,
+          explanation,
         });
       }
       continue;
     }
 
     if (type === "example") {
-      const text = asString(payload.text) || undefined;
+      const text = normalizeRichText(payload.text);
       const steps = normalizeSteps(payload.steps);
 
       if (text || steps.length > 0) {
         result.push({
           type: "example",
-          title: asString(payload.title) || undefined,
+          title,
           text,
           steps,
         });
@@ -356,20 +386,22 @@ function transformToRendererBlocks(
     }
 
     if (type === "tip") {
-      const text = asString(payload.text);
+      const text = normalizeRichText(payload.text);
+      const segments = normalizeSegments(payload.segments);
 
-      if (text.trim()) {
+      if (text || segments.length > 0) {
         result.push({
           type: "tip",
-          title: asString(payload.title) || undefined,
+          title,
           text,
+          segments: segments.length > 0 ? segments : undefined,
         });
       }
       continue;
     }
 
     if (type === "exercise") {
-      const question = asString(payload.question);
+      const question = normalizeRichText(payload.question);
 
       let choices = normalizeChoicesFromObjects(payload.choices);
 
@@ -384,15 +416,18 @@ function transformToRendererBlocks(
         );
       }
 
-      if (question.trim()) {
+      const explanation = normalizeRichText(payload.explanation);
+
+      if (question && choices.length > 0) {
         result.push({
           type: "exercise",
-          title: asString(payload.title) || undefined,
+          title,
           question,
           choices,
-          explanation: asString(payload.explanation) || undefined,
+          explanation,
         });
       }
+      continue;
     }
   }
 
@@ -693,7 +728,7 @@ export default function StudyChapterPage({
           </h1>
 
           <p className="mt-6 text-base leading-8 text-muted-foreground md:text-lg">
-            Concentrez-vous sur l essentiel. Lisez attentivement, pratiquez.
+            Concentrez-vous sur l essentiel. Lisez attentivement, pratiquez,
             les blocs interactifs, et validez vos acquis à votre rythme.
           </p>
         </header>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { getSubjects } from "@/lib/supabase/queries";
+import { getSubjects } from '@/lib/supabase/queries.client';
 import { normalizeSubject, getSubjectIcon, type NormalizedSubject } from "@/lib/subjects";
 import { BookOpen, Search, ArrowRight } from "lucide-react";
 

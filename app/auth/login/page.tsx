@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -46,11 +46,50 @@ type PrecheckResponse = {
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkExistingSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabaseBrowser.auth.getSession();
+
+        if (!mounted) return;
+
+        if (session?.user) {
+          router.replace('/dashboard');
+          return;
+        }
+      } finally {
+        if (mounted) setCheckingSession(false);
+      }
+    };
+
+    checkExistingSession();
+
+    const {
+      data: { subscription },
+    } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
+      if (session?.user) {
+        router.replace('/dashboard');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,6 +190,14 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">

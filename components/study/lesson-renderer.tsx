@@ -7,39 +7,41 @@ import { Button } from "@/components/ui/button";
 
 // ================= TYPES =================
 
-type Choice = {
-  text: string;
-  correct: boolean;
-};
-
-type Step = {
-  text?: string;
-  formula?: string;
-  explanation?: string;
-};
-
 type TextMark = {
   text: string;
   color?: string;
 };
 
+type RichValue = string | TextMark[];
+
+type Choice = {
+  text: RichValue;
+  correct: boolean;
+};
+
+type Step = {
+  text?: RichValue;
+  formula?: string;
+  explanation?: RichValue;
+};
+
 export type LessonBlock = {
   type: "text" | "katex" | "example" | "tip" | "exercise";
-  title?: string;
+  title?: RichValue;
 
   // text
-  text?: string;
+  text?: RichValue;
   segments?: TextMark[];
 
   // katex
   formula?: string;
-  explanation?: string;
+  explanation?: RichValue;
 
   // example
   steps?: Step[];
 
   // exercise
-  question?: string;
+  question?: RichValue;
   choices?: Choice[];
 };
 
@@ -117,6 +119,7 @@ function renderTextWithMath(text: string) {
 
   return parts.map((p, i) => {
     if (p.type === "inline") return <InlineMath key={i} math={p.value} />;
+
     if (p.type === "block") {
       return (
         <div key={i} className="my-4 overflow-x-auto">
@@ -130,16 +133,25 @@ function renderTextWithMath(text: string) {
 }
 
 function RichText({
+  value,
   text,
   segments,
 }: {
+  value?: RichValue;
   text?: string;
   segments?: TextMark[];
 }) {
-  if (Array.isArray(segments) && segments.length > 0) {
+  const resolved =
+    value !== undefined
+      ? value
+      : Array.isArray(segments) && segments.length > 0
+      ? segments
+      : text;
+
+  if (Array.isArray(resolved) && resolved.length > 0) {
     return (
       <>
-        {segments.map((segment, i) => {
+        {resolved.map((segment, i) => {
           const safeColor = sanitizeColor(segment.color);
           const content = typeof segment.text === "string" ? segment.text : "";
 
@@ -148,7 +160,7 @@ function RichText({
           return (
             <span
               key={i}
-              style={safeColor ? { color: safeColor } : undefined}
+              style={safeColor ? ({ color: safeColor } as React.CSSProperties) : undefined}
             >
               {renderTextWithMath(content)}
             </span>
@@ -158,8 +170,8 @@ function RichText({
     );
   }
 
-  if (typeof text === "string" && text.trim()) {
-    return <>{renderTextWithMath(text)}</>;
+  if (typeof resolved === "string" && resolved.trim()) {
+    return <>{renderTextWithMath(resolved)}</>;
   }
 
   return null;
@@ -180,13 +192,17 @@ function Exercise({ block }: { block: LessonBlock }) {
 
   return (
     <div className="my-10 space-y-4">
-      {block.title && <h3 className="font-semibold text-lg">{block.title}</h3>}
+      {block.title && (
+        <h3 className="text-lg font-semibold">
+          <RichText value={block.title} />
+        </h3>
+      )}
 
       <div className="text-lg">
-        <RichText text={block.question} />
+        <RichText value={block.question} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {choices.map((c, i) => {
           const isSel = selected === i;
 
@@ -211,9 +227,9 @@ function Exercise({ block }: { block: LessonBlock }) {
                 if (checked) return;
                 setSelected(i);
               }}
-              className={`w-full h-14 px-4 rounded-lg border text-sm font-medium transition-all duration-150 flex items-center justify-center text-center shadow-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99] ${style}`}
+              className={`flex min-h-[56px] w-full items-center justify-center rounded-lg border px-4 py-3 text-center text-sm font-medium transition-all duration-150 shadow-none outline-none active:scale-[0.99] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${style}`}
             >
-              <RichText text={c.text} />
+              <RichText value={c.text} />
             </button>
           );
         })}
@@ -226,11 +242,11 @@ function Exercise({ block }: { block: LessonBlock }) {
       ) : (
         <div className="space-y-2">
           {isCorrect() ? (
-            <div className="text-green-600 flex items-center gap-2">
+            <div className="flex items-center gap-2 text-green-600">
               <CheckCircle2 size={18} /> Bonne réponse
             </div>
           ) : (
-            <div className="text-red-600 flex items-center gap-2">
+            <div className="flex items-center gap-2 text-red-600">
               <XCircle size={18} /> Mauvaise réponse
             </div>
           )}
@@ -247,7 +263,7 @@ function Exercise({ block }: { block: LessonBlock }) {
 
           {block.explanation && (
             <div className="text-sm text-gray-600">
-              <RichText text={block.explanation} />
+              <RichText value={block.explanation} />
             </div>
           )}
         </div>
@@ -267,13 +283,17 @@ export default function LessonRenderer({ blocks }: { blocks: LessonBlock[] }) {
             return (
               <div key={i} className="my-8">
                 {block.title && (
-                  <h3 className="font-semibold text-lg mb-3 text-foreground">
-                    {block.title}
+                  <h3 className="mb-3 text-lg font-semibold text-foreground">
+                    <RichText value={block.title} />
                   </h3>
                 )}
 
                 <div className="leading-relaxed text-[15.5px] md:text-base">
-                  <RichText text={block.text} segments={block.segments} />
+                  <RichText
+                    value={block.text}
+                    text={typeof block.text === "string" ? block.text : undefined}
+                    segments={block.segments}
+                  />
                 </div>
               </div>
             );
@@ -282,12 +302,16 @@ export default function LessonRenderer({ blocks }: { blocks: LessonBlock[] }) {
             return (
               <div key={i} className="my-6">
                 {block.title && (
-                  <h3 className="font-semibold text-lg mb-2">{block.title}</h3>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    <RichText value={block.title} />
+                  </h3>
                 )}
+
                 <BlockMath math={block.formula || ""} />
+
                 {block.explanation && (
-                  <div className="text-sm text-gray-600 mt-2">
-                    <RichText text={block.explanation} />
+                  <div className="mt-2 text-sm text-gray-600">
+                    <RichText value={block.explanation} />
                   </div>
                 )}
               </div>
@@ -297,22 +321,24 @@ export default function LessonRenderer({ blocks }: { blocks: LessonBlock[] }) {
             return (
               <div key={i} className="my-8">
                 {block.title && (
-                  <h3 className="font-semibold text-lg mb-2">{block.title}</h3>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    <RichText value={block.title} />
+                  </h3>
                 )}
 
                 {block.text && (
                   <p className="mb-3">
-                    <RichText text={block.text} />
+                    <RichText value={block.text} />
                   </p>
                 )}
 
                 {block.steps?.map((step, idx) => (
                   <div key={idx} className="mb-2">
-                    {step.text && <RichText text={step.text} />}
+                    {step.text && <RichText value={step.text} />}
                     {step.formula && <BlockMath math={step.formula} />}
                     {step.explanation && (
                       <div className="text-sm text-gray-600">
-                        <RichText text={step.explanation} />
+                        <RichText value={step.explanation} />
                       </div>
                     )}
                   </div>
@@ -324,12 +350,14 @@ export default function LessonRenderer({ blocks }: { blocks: LessonBlock[] }) {
             return (
               <div
                 key={i}
-                className="my-6 p-4 rounded-lg bg-yellow-50 border border-yellow-200"
+                className="my-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4"
               >
                 {block.title && (
-                  <div className="font-semibold mb-1 text-lg">{block.title}</div>
+                  <div className="mb-1 text-lg font-semibold">
+                    <RichText value={block.title} />
+                  </div>
                 )}
-                <RichText text={block.text} />
+                <RichText value={block.text} segments={block.segments} />
               </div>
             );
 

@@ -17,7 +17,7 @@ import {
   BookOpen,
   Target,
 } from 'lucide-react';
-import { mockGetCurrentUser } from '@/lib/mock-api/auth';
+import { supabase } from '@/lib/supabase/client';
 import { getSubjects } from '@/lib/mock-api/data';
 import type { User } from '@/lib/types';
 
@@ -53,23 +53,6 @@ function normalizeSubject(subject: any): ProfileSubject {
   };
 }
 
-function normalizeUser(rawUser: any): User {
-  return {
-    id: String(rawUser?.id ?? ''),
-    name: String(
-      rawUser?.name ??
-        rawUser?.fullName ??
-        [rawUser?.firstName, rawUser?.lastName].filter(Boolean).join(' ') ??
-        'Utilisateur'
-    ),
-    email: rawUser?.email ? String(rawUser.email) : '',
-    phone: rawUser?.phone ? String(rawUser.phone) : '',
-    level: String(rawUser?.level ?? rawUser?.classLevel ?? 'Non défini'),
-    joinDate: String(rawUser?.joinDate ?? rawUser?.createdAt ?? new Date().toISOString()),
-    totalTimeStudied: Number(rawUser?.totalTimeStudied ?? 0),
-  };
-}
-
 function buildProgressFromSubjects(subjects: ProfileSubject[]): ProfileProgress[] {
   return subjects.map((subject) => {
     const totalChapters = Math.max(subject.chaptersCount, 0);
@@ -87,6 +70,24 @@ function buildProgressFromSubjects(subjects: ProfileSubject[]): ProfileProgress[
   });
 }
 
+function buildUserFromSession(authUser: any): User {
+  return {
+    id: String(authUser?.id ?? ''),
+    name:
+      authUser?.user_metadata?.full_name ||
+      authUser?.user_metadata?.name ||
+      authUser?.email?.split('@')[0] ||
+      'Utilisateur',
+    email: authUser?.email ? String(authUser.email) : '',
+    phone: authUser?.user_metadata?.phone
+      ? String(authUser.user_metadata.phone)
+      : '',
+    level: String(authUser?.user_metadata?.level ?? 'Non défini'),
+    joinDate: String(authUser?.created_at ?? new Date().toISOString()),
+    totalTimeStudied: 0,
+  };
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
@@ -100,26 +101,35 @@ export default function ProfilePage() {
 
     const loadData = async () => {
       try {
-        const [currentUser, subjectsData] = await Promise.all([
-          mockGetCurrentUser(),
-          getSubjects(),
-        ]);
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
         if (!mounted) return;
 
-        if (!currentUser) {
-          router.push('/auth/login');
+        if (error || !session?.user) {
+          router.replace('/auth/login');
           return;
         }
+
+        const normalizedUser = buildUserFromSession(session.user);
+
+        const subjectsData = await getSubjects();
+
+        if (!mounted) return;
 
         const normalizedSubjects = Array.isArray(subjectsData)
           ? subjectsData.map(normalizeSubject)
           : [];
 
-        const normalizedUser = normalizeUser(currentUser);
-
         setUser(normalizedUser);
         setSubjects(normalizedSubjects);
+      } catch (error) {
+        console.error('[profile] load error:', error);
+        if (mounted) {
+          router.replace('/auth/login');
+        }
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -127,8 +137,22 @@ export default function ProfilePage() {
 
     loadData();
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
+      if (!session?.user) {
+        router.replace('/auth/login');
+        return;
+      }
+
+      setUser(buildUserFromSession(session.user));
+    });
+
     return () => {
       mounted = false;
+      subscription.unsubscribe();
     };
   }, [router]);
 
@@ -179,7 +203,7 @@ export default function ProfilePage() {
           transition={{ duration: 0.18 }}
         >
           <div className="mb-8">
-            <h1 className="mb-2 text-3xl font-bold font-serif sm:text-4xl">Profil</h1>
+            <h1 className="mb-2 font-serif text-3xl font-bold sm:text-4xl">Profil</h1>
           </div>
 
           <div className="mb-8 grid gap-6 lg:grid-cols-3">
@@ -219,9 +243,7 @@ export default function ProfilePage() {
 
                   <div className="flex items-center space-x-3 text-sm">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {new Date(user.joinDate).toLocaleDateString('fr-FR')}
-                    </span>
+                    <span>{new Date(user.joinDate).toLocaleDateString('fr-FR')}</span>
                   </div>
                 </div>
               </CardContent>
@@ -229,10 +251,26 @@ export default function ProfilePage() {
 
             <div className="space-y-6 lg:col-span-2">
               <div className="grid gap-4 sm:grid-cols-2">
-                <StatCard title="Temps étudié" value={`${hoursStudied}h ${minutesStudied}m`} icon={<Clock />} />
-                <StatCard title="Chapitres terminés" value={totalChaptersCompleted} icon={<BookOpen />} />
-                <StatCard title="Quiz réussis" value={totalQuizzesPassed} icon={<Trophy />} />
-                <StatCard title="Score moyen" value={`${averageScore.toFixed(0)}%`} icon={<Target />} />
+                <StatCard
+                  title="Temps étudié"
+                  value={`${hoursStudied}h ${minutesStudied}m`}
+                  icon={<Clock />}
+                />
+                <StatCard
+                  title="Chapitres terminés"
+                  value={totalChaptersCompleted}
+                  icon={<BookOpen />}
+                />
+                <StatCard
+                  title="Quiz réussis"
+                  value={totalQuizzesPassed}
+                  icon={<Trophy />}
+                />
+                <StatCard
+                  title="Score moyen"
+                  value={`${averageScore.toFixed(0)}%`}
+                  icon={<Target />}
+                />
               </div>
 
               <Card>
@@ -260,7 +298,7 @@ export default function ProfilePage() {
   );
 }
 
-function StatCard({ title, value, icon }: any) {
+function StatCard({ title, value, icon }: { title: string; value: string | number; icon: React.ReactNode }) {
   return (
     <Card>
       <CardHeader className="flex flex-row justify-between pb-2">

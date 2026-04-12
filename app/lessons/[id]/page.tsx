@@ -41,42 +41,51 @@ type RawLessonBlock = {
   };
 };
 
+type TextSegment = {
+  text: string;
+  color?: string;
+};
+
+type RichText = string | TextSegment[];
+
 type RenderBlock =
   | {
       type: "text";
-      title?: string;
-      text: string;
+      title?: RichText;
+      text?: RichText;
+      segments?: TextSegment[];
     }
   | {
       type: "katex";
-      title?: string;
+      title?: RichText;
       formula: string;
-      explanation?: string;
+      explanation?: RichText;
     }
   | {
       type: "example";
-      title?: string;
-      text?: string;
+      title?: RichText;
+      text?: RichText;
       steps?: {
-        text?: string;
+        text?: RichText;
         formula?: string;
-        explanation?: string;
+        explanation?: RichText;
       }[];
     }
   | {
       type: "tip";
-      title?: string;
-      text: string;
+      title?: RichText;
+      text?: RichText;
+      segments?: TextSegment[];
     }
   | {
       type: "exercise";
-      title?: string;
-      question: string;
+      title?: RichText;
+      question: RichText;
       choices: {
-        text: string;
+        text: RichText;
         correct: boolean;
       }[];
-      explanation?: string;
+      explanation?: RichText;
     };
 
 function asString(value: unknown): string {

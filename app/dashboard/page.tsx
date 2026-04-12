@@ -1,24 +1,24 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
-import { DashboardNav } from "@/components/dashboard-nav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { motion, useReducedMotion } from 'framer-motion';
+import { DashboardNav } from '@/components/dashboard-nav';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   BookOpen,
   Clock,
   TrendingUp,
   ArrowRight,
-} from "lucide-react";
-import { getSubjects } from "@/lib/supabase/queries";
-import { supabase } from "@/lib/supabase/client";
-import type { User } from "@/lib/types";
-import { normalizeSubject, getSubjectIcon, type NormalizedSubject } from "@/lib/subjects";
+} from 'lucide-react';
+import { getSubjects } from '@/lib/supabase/queries.client';
+import { supabaseBrowser } from '@/lib/supabase/client';
+import type { User } from '@/lib/types';
+import { normalizeSubject, getSubjectIcon, type NormalizedSubject } from '@/lib/subjects';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -28,79 +28,80 @@ export default function DashboardPage() {
   const [subjects, setSubjects] = useState<NormalizedSubject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
- useEffect(() => {
-  let mounted = true;
+  useEffect(() => {
+    let mounted = true;
 
-  const buildUserFromSession = (authUser: any): User => ({
-    id: String(authUser.id ?? ""),
-    name:
-      authUser.user_metadata?.full_name ||
-      authUser.user_metadata?.name ||
-      authUser.email?.split("@")[0] ||
-      "Élève",
-    email: authUser.email || "",
-    phone: authUser.user_metadata?.phone || authUser.phone || "",
-    level: authUser.user_metadata?.level || "Débutant",
-    joinDate: authUser.created_at || new Date().toISOString(),
-    totalTimeStudied: 0,
-  });
+    const buildUserFromSession = (authUser: any): User => ({
+      id: String(authUser.id ?? ''),
+      name:
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        authUser.email?.split('@')[0] ||
+        'Élève',
+      email: authUser.email || '',
+      phone: authUser.user_metadata?.phone || authUser.phone || '',
+      level: authUser.user_metadata?.level || 'Débutant',
+      joinDate: authUser.created_at || new Date().toISOString(),
+      totalTimeStudied: 0,
+    });
 
-  const init = async () => {
-    console.log("[dashboard] checking session...");
+    const init = async () => {
+      console.log('[dashboard] checking session...');
+
+      const {
+        data: { session },
+        error,
+      } = await supabaseBrowser.auth.getSession();
+
+      if (error) {
+        console.error('[dashboard] session error =', error);
+      }
+
+      console.log('[dashboard] session =', session);
+
+      if (!mounted) return;
+
+      if (!session?.user) {
+        router.replace('/auth/login');
+        return;
+      }
+
+      setUser(buildUserFromSession(session.user));
+
+      const subjectsData = await getSubjects();
+
+      if (!mounted) return;
+
+      const normalizedSubjects = Array.isArray(subjectsData)
+        ? subjectsData.map((subject, index) => normalizeSubject(subject, index))
+        : [];
+
+      setSubjects(normalizedSubjects);
+      setIsLoading(false);
+    };
+
+    init();
 
     const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
+      data: { subscription },
+    } = supabaseBrowser.auth.onAuthStateChange((event, session) => {
+      console.log('[dashboard] auth event =', event);
 
-    console.log("[dashboard] session =", session);
+      if (!mounted) return;
 
-    if (!mounted) return;
+      if (!session?.user) {
+        router.replace('/auth/login');
+        return;
+      }
 
-    // ❗ NE REDIRIGE PAS ICI
-    if (!session?.user) {
-      setIsLoading(false);
-      return;
-    }
+      setUser(buildUserFromSession(session.user));
+    });
 
-    setUser(buildUserFromSession(session.user));
-
-    const subjectsData = await getSubjects();
-
-    if (!mounted) return;
-
-    const normalizedSubjects = Array.isArray(subjectsData)
-      ? subjectsData.map((subject, index) =>
-          normalizeSubject(subject, index)
-        )
-      : [];
-
-    setSubjects(normalizedSubjects);
-    setIsLoading(false);
-  };
-
-  init();
-
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((event, session) => {
-    console.log("[dashboard] auth event =", event);
-
-    if (!mounted) return;
-
-    if (!session?.user) {
-      router.replace("/auth/login"); // ✅ ici c’est OK
-      return;
-    }
-
-    setUser(buildUserFromSession(session.user));
-  });
-
-  return () => {
-    mounted = false;
-    subscription.unsubscribe();
-  };
-}, [router]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   if (isLoading) {
     return (
@@ -120,7 +121,7 @@ export default function DashboardPage() {
 
   const hoursStudied = Math.floor((user?.totalTimeStudied || 0) / 60);
   const minutesStudied = (user?.totalTimeStudied || 0) % 60;
-  const firstName = user?.name?.split(" ")[0] ?? "élève";
+  const firstName = user?.name?.split(' ')[0] ?? 'élève';
 
   return (
     <div className="min-h-screen bg-background">
@@ -199,9 +200,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
             {subjects.map((subject) => {
               const IconComponent = getSubjectIcon(subject.icon);
-              const href = subject.slug?.trim()
-                ? `/subjects/${subject.slug}`
-                : "/subjects";
+              const href = subject.slug?.trim() ? `/subjects/${subject.slug}` : '/subjects';
 
               return (
                 <motion.div
@@ -218,7 +217,7 @@ export default function DashboardPage() {
                         <div className="flex items-start justify-between gap-3">
                           <IconComponent className="h-7 w-7 shrink-0 text-primary sm:h-8 sm:w-8" />
                           <Badge variant="secondary" className="shrink-0">
-                            {subject.chaptersCount} chapitre{subject.chaptersCount > 1 ? "s" : ""}
+                            {subject.chaptersCount} chapitre{subject.chaptersCount > 1 ? 's' : ''}
                           </Badge>
                         </div>
 
@@ -227,7 +226,7 @@ export default function DashboardPage() {
                         </CardTitle>
 
                         <p className="text-sm text-muted-foreground">
-                          {subject.description || "Commence cette matière et progresse chapitre par chapitre."}
+                          {subject.description || 'Commence cette matière et progresse chapitre par chapitre.'}
                         </p>
                       </CardHeader>
 

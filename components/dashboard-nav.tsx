@@ -28,11 +28,9 @@ import {
   Brain,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { mockGetCurrentUser, mockLogout } from '@/lib/mock-api/auth';
+import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-
-const USER_CACHE_KEY = 'edustat:nav:user';
 
 type NavItem = {
   href: string;
@@ -40,14 +38,27 @@ type NavItem = {
 };
 
 type NavbarUser = {
-  name?: string;
-  fullName?: string;
-  full_name?: string;
-  firstName?: string;
-  lastName?: string;
+  id: string;
+  name: string;
+  email: string;
   phone?: string;
-  email?: string;
 };
+
+function buildNavbarUser(authUser: any): NavbarUser {
+  return {
+    id: String(authUser?.id ?? ''),
+    name:
+      authUser?.user_metadata?.full_name ||
+      authUser?.user_metadata?.name ||
+      [authUser?.user_metadata?.firstName, authUser?.user_metadata?.lastName]
+        .filter(Boolean)
+        .join(' ') ||
+      authUser?.email?.split('@')[0] ||
+      'Utilisateur',
+    email: authUser?.email || '',
+    phone: authUser?.user_metadata?.phone || '',
+  };
+}
 
 export function DashboardNav() {
   const pathname = usePathname();
@@ -79,46 +90,40 @@ export function DashboardNav() {
 
     const loadUser = async () => {
       try {
-        const cached =
-          typeof window !== 'undefined' ? sessionStorage.getItem(USER_CACHE_KEY) : null;
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached) as NavbarUser;
-            if (mounted) setUser(parsed);
-          } catch {
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem(USER_CACHE_KEY);
-            }
-          }
-        }
-
-        const currentUser = (await mockGetCurrentUser()) as NavbarUser | null;
         if (!mounted) return;
 
-        setUser(currentUser ?? null);
-
-        if (typeof window !== 'undefined') {
-          if (currentUser) {
-            sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(currentUser));
-          } else {
-            sessionStorage.removeItem(USER_CACHE_KEY);
-          }
+        if (session?.user) {
+          setUser(buildNavbarUser(session.user));
+        } else {
+          setUser(null);
         }
       } catch {
         if (!mounted) return;
         setUser(null);
-
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem(USER_CACHE_KEY);
-        }
       }
     };
 
     loadUser();
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
+      if (session?.user) {
+        setUser(buildNavbarUser(session.user));
+      } else {
+        setUser(null);
+      }
+    });
+
     return () => {
       mounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -138,17 +143,17 @@ export function DashboardNav() {
 
   const handleLogout = useCallback(async () => {
     try {
-      await mockLogout();
-    } finally {
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem(USER_CACHE_KEY);
-      }
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
 
       setUser(null);
       setMobileMenuOpen(false);
       toast.success('Déconnexion réussie');
-      router.push('/');
+      router.replace('/auth/login');
       router.refresh();
+    } catch (error) {
+      console.error('[nav] logout error:', error);
+      toast.error('Impossible de se déconnecter pour le moment');
     }
   }, [router]);
 
@@ -165,13 +170,7 @@ export function DashboardNav() {
     setTheme(currentTheme === 'dark' ? 'light' : 'dark');
   }, [resolvedTheme, setTheme, theme]);
 
-  const userDisplayName =
-    user?.name ||
-    user?.fullName ||
-    user?.full_name ||
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-    'Utilisateur';
-
+  const userDisplayName = user?.name || 'Utilisateur';
   const userPhone = user?.phone || user?.email || 'Non renseigné';
 
   const renderNoTranslateLabel = (label: string) => (
@@ -461,3 +460,5 @@ export function DashboardNav() {
     </>
   );
 }
+
+export default DashboardNav;
